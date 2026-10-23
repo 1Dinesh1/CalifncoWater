@@ -1,4 +1,4 @@
-﻿# Califnco Water — Project Status
+# Califnco Water — Project Status
 ## Assignment
 - Company: Califnco
 - Role: Software Developer
@@ -19,16 +19,32 @@ D:\CalifncoProject\CalifncoWater
 - Node.js: v24.13.1
 - npm: 11.8.0
 - Git: 2.53.0.windows.1
-- Expo project created using blank template.
+- Expo project created using blank template (root App.js, no Expo Router).
 - Project upgraded to Expo SDK 58 to match installed Expo Go.
-- Metro successfully bundled index.js for Android.
-- Phone screen confirmation: pending.
+- Metro bundling: Verified on Android via Expo Go.
 - Firebase project: not created yet.
 - Admin panel: not created yet.
 - AI automation: not configured yet.
 ## Checkpoints
-- M0-setup-ready: pending phone-screen confirmation and initial Git commit.
-- M1-catalogue: not started.
+- M0-setup-ready: Committed baseline (`bb3fca1`).
+- M1-catalogue: VERIFIED (implemented and manually verified on Android using Expo Go).
+  - Confirmed working:
+    - Catalogue products and images load.
+    - Search supports continuous typing after the focus/remount bug fix.
+    - Category filters work.
+    - Add to Cart, increment and decrement controls work.
+    - View Cart and bill summary work.
+    - Subtotal and total calculations update correctly.
+  - Still pending:
+    - Checkout and order placement.
+    - Authentication and dealer-specific pricing.
+    - Backend/Firebase integration and remaining assignment requirements.
+  - Files created/modified:
+    - `App.js`: Root entry updated to host SafeAreaView and CatalogueScreen.
+    - `src/data/products.js`: 16 sample products across 4 categories (Purifiers, Dispensers, Filters, Accessories) with realistic INR prices and offline-safe fallback icons.
+    - `src/components/ProductCard.js`: Mobile-friendly card with category pills, discount badges, specs, image error fallback, and stepper controls.
+    - `src/components/CartModal.js`: Shopping cart modal with bill summary, item increment/decrement, empty state, and M1 disclaimer on checkout.
+    - `src/screens/CatalogueScreen.js`: Main catalogue screen with live search, horizontal category filters, flatlist product cards, and sticky bottom cart bar.
 - M2-firebase-auth: not started.
 - M3-orders-dealer: not started.
 - M4-admin: not started.
@@ -45,4 +61,4 @@ D:\CalifncoProject\CalifncoWater
 9. Do not claim a feature works until it has been tested.
 10. If switching AI editors, save all files, review Git status, and provide the next editor with a project handoff.
 ## Next Action
-Confirm the starter screen opens on the Android phone. Then commit the initial working baseline as M0-setup-ready.
+Commit M1-catalogue working baseline, then proceed to the next milestone.
