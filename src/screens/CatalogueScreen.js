@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,16 +8,24 @@ import {
   ScrollView,
   FlatList,
   Platform,
+  Alert,
   StatusBar as RNStatusBar,
 } from 'react-native';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from '../firebase';
 import { CATEGORIES, CATEGORY_META, PRODUCTS, formatPrice } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import CartModal from '../components/CartModal';
+import AuthModal from '../components/AuthModal';
+import OrdersModal from '../components/OrdersModal';
+import ServiceBookingModal from '../components/ServiceBookingModal';
 
 // Standalone Top-Level Header Component to prevent remounting and maintain TextInput focus
 function CatalogueHeader({
   totalCartCount,
   onOpenCart,
+  onOpenOrders,
+  onOpenBooking,
   searchQuery,
   onSearchChange,
   selectedCategory,
@@ -25,6 +33,9 @@ function CatalogueHeader({
   categoryCounts,
   filteredCount,
   onResetFilters,
+  currentUser,
+  onOpenAuth,
+  onProfilePress,
 }) {
   return (
     <View style={styles.headerContainer}>
@@ -40,31 +51,100 @@ function CatalogueHeader({
           </View>
         </View>
 
-        {/* Header Cart Icon Button */}
-        <TouchableOpacity
-          style={styles.cartIconButton}
-          onPress={onOpenCart}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.cartIconText}>🛒</Text>
-          {totalCartCount > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>
-                {totalCartCount > 99 ? '99+' : totalCartCount}
-              </Text>
-            </View>
+        {/* Header Actions Row (Orders + Auth + Cart) */}
+        <View style={styles.headerActionsRow}>
+          {/* Header Orders Button */}
+          <TouchableOpacity
+            style={styles.ordersButton}
+            onPress={onOpenOrders}
+            activeOpacity={0.7}
+            accessibilityLabel="My Orders"
+          >
+            <Text style={styles.ordersIcon}>📦</Text>
+            <Text style={styles.ordersButtonText}>Orders</Text>
+          </TouchableOpacity>
+
+          {currentUser ? (
+            <TouchableOpacity
+              style={styles.authProfileButton}
+              onPress={onProfilePress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.userAvatar}>
+                <Text style={styles.userAvatarText}>
+                  {(currentUser.email || 'U')[0].toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.userEmailColumn}>
+                <Text style={styles.userEmailText} numberOfLines={1}>
+                  {currentUser.email?.split('@')[0]}
+                </Text>
+                <Text style={styles.signOutText}>Account</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.signInButton}
+              onPress={onOpenAuth}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.signInIcon}>👤</Text>
+              <Text style={styles.signInButtonText}>Sign In</Text>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+
+          {/* Header Cart Icon Button */}
+          <TouchableOpacity
+            style={styles.cartIconButton}
+            onPress={onOpenCart}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cartIconText}>🛒</Text>
+            {totalCartCount > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>
+                  {totalCartCount > 99 ? '99+' : totalCartCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Hero Welcome Card */}
       <View style={styles.heroCard}>
         <View style={styles.heroContent}>
-          <Text style={styles.heroBadge}>CERTIFIED WATER PURIFICATION</Text>
-          <Text style={styles.heroHeading}>Drink Pure. Live Healthy.</Text>
-          <Text style={styles.heroSubtext}>
-            Explore our genuine purifiers, dispensers, replacement cartridges & accessories.
+          <Text style={styles.heroBadge}>
+            {currentUser
+              ? `CUSTOMER: ${currentUser.email?.split('@')[0].toUpperCase()}`
+              : 'CERTIFIED WATER PURIFICATION'}
           </Text>
+          <Text style={styles.heroHeading}>
+            {currentUser ? 'Pure Water For Your Home' : 'Drink Pure. Live Healthy.'}
+          </Text>
+          <Text style={styles.heroSubtext}>
+            {currentUser
+              ? 'Browse genuine water purifiers, dispensers, replacement cartridges & accessories.'
+              : 'Explore our genuine purifiers, dispensers, replacement cartridges & accessories.'}
+          </Text>
+          {currentUser && (
+            <View style={styles.heroActionsRow}>
+              <TouchableOpacity
+                style={styles.heroOrdersPill}
+                onPress={onOpenOrders}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.heroOrdersPillText}>📦 View Orders</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.heroServicePill}
+                onPress={onOpenBooking}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.heroServicePillText}>🛠️ Book Service</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
         <Text style={styles.heroIllustration}>🚰</Text>
       </View>
@@ -92,6 +172,33 @@ function CatalogueHeader({
             </TouchableOpacity>
           )}
         </View>
+      </View>
+
+      {/* Service Booking Quick Promo Banner */}
+      <View style={styles.servicePromoSection}>
+        <TouchableOpacity
+          style={styles.servicePromoCard}
+          onPress={onOpenBooking}
+          activeOpacity={0.85}
+        >
+          <View style={styles.servicePromoLeft}>
+            <View style={styles.servicePromoIconBox}>
+              <Text style={styles.servicePromoIcon}>🛠️</Text>
+            </View>
+            <View style={styles.servicePromoTextCol}>
+              <View style={styles.servicePromoBadgeRow}>
+                <Text style={styles.servicePromoBadge}>DOORSTEP SERVICE</Text>
+              </View>
+              <Text style={styles.servicePromoTitle}>Water Purifier Service & Repair</Text>
+              <Text style={styles.servicePromoSubtitle}>
+                Installation • Filter Replacement • Maintenance
+              </Text>
+            </View>
+          </View>
+          <View style={styles.servicePromoButton}>
+            <Text style={styles.servicePromoButtonText}>Book Now →</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       {/* Category Pills (Horizontal Scroll) */}
@@ -188,10 +295,51 @@ function EmptyResults({ searchQuery, onResetFilters }) {
 }
 
 export default function CatalogueScreen() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [ordersModalVisible, setOrdersModalVisible] = useState(false);
+  const [bookingModalVisible, setBookingModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cart, setCart] = useState({});
   const [cartModalVisible, setCartModalVisible] = useState(false);
+
+  // Track Firebase customer authentication state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleProfilePress = () => {
+    Alert.alert(
+      'Customer Account',
+      `Signed in as: ${currentUser?.email || 'Customer'}`,
+      [
+        {
+          text: 'Book a Service',
+          onPress: () => setBookingModalVisible(true),
+        },
+        {
+          text: 'My Orders',
+          onPress: () => setOrdersModalVisible(true),
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut(auth);
+            } catch (err) {
+              Alert.alert('Sign Out Error', err?.message || 'Failed to sign out.');
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
 
   // Cart operations
   const handleAddToCart = (productId) => {
@@ -291,6 +439,8 @@ export default function CatalogueScreen() {
           <CatalogueHeader
             totalCartCount={totalCartCount}
             onOpenCart={() => setCartModalVisible(true)}
+            onOpenOrders={() => setOrdersModalVisible(true)}
+            onOpenBooking={() => setBookingModalVisible(true)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             selectedCategory={selectedCategory}
@@ -298,6 +448,9 @@ export default function CatalogueScreen() {
             categoryCounts={categoryCounts}
             filteredCount={filteredProducts.length}
             onResetFilters={handleResetFilters}
+            currentUser={currentUser}
+            onOpenAuth={() => setAuthModalVisible(true)}
+            onProfilePress={handleProfilePress}
           />
         }
         ListEmptyComponent={
@@ -348,6 +501,30 @@ export default function CatalogueScreen() {
         onIncrement={handleIncrement}
         onDecrement={handleDecrement}
         onClearCart={handleClearCart}
+        currentUser={currentUser}
+        onOpenAuth={() => setAuthModalVisible(true)}
+      />
+
+      {/* Customer Authentication Modal */}
+      <AuthModal
+        visible={authModalVisible}
+        onClose={() => setAuthModalVisible(false)}
+      />
+
+      {/* Customer Orders Modal */}
+      <OrdersModal
+        visible={ordersModalVisible}
+        onClose={() => setOrdersModalVisible(false)}
+        currentUser={currentUser}
+        onOpenAuth={() => setAuthModalVisible(true)}
+      />
+
+      {/* Customer Service Booking Modal */}
+      <ServiceBookingModal
+        visible={bookingModalVisible}
+        onClose={() => setBookingModalVisible(false)}
+        currentUser={currentUser}
+        onOpenAuth={() => setAuthModalVisible(true)}
       />
     </View>
   );
@@ -382,41 +559,129 @@ const styles = StyleSheet.create({
   brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    marginRight: 6,
   },
   brandIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#e0f2fe',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 8,
   },
   brandIcon: {
-    fontSize: 22,
+    fontSize: 20,
   },
   brandTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0f172a',
     letterSpacing: -0.3,
   },
   brandTagline: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#0284c7',
     fontWeight: '600',
   },
+  headerActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ordersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 8,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  ordersIcon: {
+    fontSize: 13,
+    marginRight: 4,
+  },
+  ordersButtonText: {
+    color: '#0f172a',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  signInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  signInIcon: {
+    fontSize: 13,
+    marginRight: 4,
+  },
+  signInButtonText: {
+    color: '#0284c7',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  authProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    maxWidth: 110,
+  },
+  userAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#0284c7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 5,
+  },
+  userAvatarText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  userEmailColumn: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+  },
+  userEmailText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0f172a',
+    maxWidth: 65,
+  },
+  signOutText: {
+    fontSize: 8,
+    color: '#0284c7',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
   cartIconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   cartIconText: {
-    fontSize: 20,
+    fontSize: 18,
   },
   cartBadge: {
     position: 'absolute',
@@ -424,17 +689,17 @@ const styles = StyleSheet.create({
     right: -2,
     backgroundColor: '#0284c7',
     borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
     borderWidth: 2,
     borderColor: '#ffffff',
   },
   cartBadgeText: {
     color: '#ffffff',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
   },
   heroCard: {
@@ -472,12 +737,115 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  heroActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  heroOrdersPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  heroOrdersPillText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  heroServicePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#ffffff',
+  },
+  heroServicePillText: {
+    color: '#0284c7',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
   heroIllustration: {
     fontSize: 42,
   },
   searchSection: {
     paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  servicePromoSection: {
+    paddingHorizontal: 16,
     marginBottom: 12,
+  },
+  servicePromoCard: {
+    backgroundColor: '#f0f9ff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  servicePromoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  servicePromoIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#e0f2fe',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  servicePromoIcon: {
+    fontSize: 18,
+  },
+  servicePromoTextCol: {
+    flex: 1,
+  },
+  servicePromoBadgeRow: {
+    flexDirection: 'row',
+    marginBottom: 2,
+  },
+  servicePromoBadge: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#0284c7',
+    letterSpacing: 0.5,
+  },
+  servicePromoTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f172a',
+    lineHeight: 16,
+  },
+  servicePromoSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  servicePromoButton: {
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 6,
+  },
+  servicePromoButtonText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
   },
   searchBox: {
     flexDirection: 'row',

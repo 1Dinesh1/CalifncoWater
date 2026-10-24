@@ -1,0 +1,150 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: Verify user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Role-based admin check: document must exist in 'admins' collection with doc ID matching auth UID
+    // Zero-compute cost, 100% free tier, strictly prevents arbitrary customers from gaining admin access
+    function isAdmin() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // -------------------------------------------------------------
+    // Administrators Registry Collection
+    // -------------------------------------------------------------
+    match /admins/{adminId} {
+      // Authenticated users can check only their own admin status
+      allow read: if isAuthenticated() && request.auth.uid == adminId;
+      // Deny client writes entirely (only manageable via Firebase Console by project owner)
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------
+    // Customer Orders Collection
+    // -------------------------------------------------------------
+    match /orders/{orderId} {
+      // Customers read their own orders; Admins can read all orders
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Customers can create orders strictly for their own UID
+      allow create: if isAuthenticated()
+        // Enforce required fields
+        && request.resource.data.keys().hasAll([
+          'userId', 'customerEmail', 'customerPhone', 'deliveryAddress',
+          'items', 'totalItems', 'totalAmount', 'orderStatus',
+          'paymentMethod', 'paymentStatus', 'createdAt'
+        ])
+        // Reject unexpected fields (whitelist only known attributes)
+        && request.resource.data.keys().hasOnly([
+          'userId', 'customerEmail', 'customerName', 'customerPhone',
+          'deliveryAddress', 'items', 'totalItems', 'totalAmount',
+          'orderStatus', 'paymentMethod', 'paymentStatus', 'createdAt'
+        ])
+        // Ownership verification
+        && request.resource.data.userId == request.auth.uid
+        // Data type validation
+        && request.resource.data.customerEmail is string
+        && request.resource.data.customerPhone is string
+        && (request.resource.data.deliveryAddress is string || request.resource.data.deliveryAddress is map)
+        && (!('customerName' in request.resource.data) || request.resource.data.customerName is string)
+        // Item list & positive quantity/amount enforcement
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.totalItems is int
+        && request.resource.data.totalItems > 0
+        && request.resource.data.totalAmount is number
+        && request.resource.data.totalAmount > 0
+        // Enforce initial statuses: Cash on Delivery only
+        && request.resource.data.orderStatus == 'placed'
+        && request.resource.data.paymentMethod == 'cod'
+        && request.resource.data.paymentStatus == 'pending'
+        && request.resource.data.createdAt == request.time;
+
+      // Only verified administrators can update, and ONLY the orderStatus field to valid enum values
+      allow update: if isAdmin()
+        // Enforce affected keys allowlist: only 'orderStatus' can be changed
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus'])
+        // Enforce valid status values matching frontend application options
+        && request.resource.data.orderStatus in ['placed', 'confirmed', 'dispatched', 'delivered', 'cancelled']
+        // Ensure all immutable order & customer attributes remain strictly identical
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.customerEmail == resource.data.customerEmail
+        && request.resource.data.customerPhone == resource.data.customerPhone
+        && request.resource.data.deliveryAddress == resource.data.deliveryAddress
+        && request.resource.data.items == resource.data.items
+        && request.resource.data.totalItems == resource.data.totalItems
+        && request.resource.data.totalAmount == resource.data.totalAmount
+        && request.resource.data.paymentMethod == resource.data.paymentMethod
+        && request.resource.data.paymentStatus == resource.data.paymentStatus
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------
+    // Customer Service Bookings Collection
+    // -------------------------------------------------------------
+    match /serviceBookings/{bookingId} {
+      // Customers read their own bookings; Admins can read all bookings
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Customers can create bookings strictly for their own UID
+      allow create: if isAuthenticated()
+        // Enforce required fields
+        && request.resource.data.keys().hasAll([
+          'userId', 'customerEmail', 'customerPhone', 'serviceType',
+          'preferredDate', 'preferredSlot', 'address', 'bookingStatus',
+          'createdAt'
+        ])
+        // Reject unexpected fields
+        && request.resource.data.keys().hasOnly([
+          'userId', 'customerEmail', 'customerName', 'customerPhone',
+          'serviceType', 'preferredDate', 'preferredSlot', 'address',
+          'notes', 'bookingStatus', 'createdAt'
+        ])
+        // Ownership verification
+        && request.resource.data.userId == request.auth.uid
+        // Data type validation
+        && request.resource.data.customerEmail is string
+        && request.resource.data.customerPhone is string
+        && request.resource.data.serviceType is string
+        && request.resource.data.preferredDate is string
+        && request.resource.data.preferredSlot is string
+        && request.resource.data.address is string
+        && (!('customerName' in request.resource.data) || request.resource.data.customerName is string)
+        && (!('notes' in request.resource.data) || request.resource.data.notes is string)
+        // Enforce initial booking status
+        && request.resource.data.bookingStatus == 'requested'
+        && request.resource.data.createdAt == request.time;
+
+      // Only verified administrators can update, and ONLY the bookingStatus field to valid enum values
+      allow update: if isAdmin()
+        // Enforce affected keys allowlist: only 'bookingStatus' can be changed
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bookingStatus'])
+        // Enforce valid status values matching frontend application options
+        && request.resource.data.bookingStatus in ['requested', 'confirmed', 'completed', 'cancelled']
+        // Ensure all immutable booking & customer attributes remain strictly identical
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.customerEmail == resource.data.customerEmail
+        && request.resource.data.customerPhone == resource.data.customerPhone
+        && request.resource.data.serviceType == resource.data.serviceType
+        && request.resource.data.preferredDate == resource.data.preferredDate
+        && request.resource.data.preferredSlot == resource.data.preferredSlot
+        && request.resource.data.address == resource.data.address
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------
+    // Default Deny: Deny all access to any unspecified collection
+    // -------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

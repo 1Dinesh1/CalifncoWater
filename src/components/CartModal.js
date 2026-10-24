@@ -7,7 +7,13 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  TextInput,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 import { formatPrice } from '../data/products';
 
 export default function CartModal({
@@ -18,8 +24,15 @@ export default function CartModal({
   onIncrement,
   onDecrement,
   onClearCart,
+  currentUser = null,
+  onOpenAuth,
 }) {
-  const [checkoutNotice, setCheckoutNotice] = useState(false);
+  const [isCheckout, setIsCheckout] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
 
   // Derive cart items list
   const cartEntries = Object.entries(cart)
@@ -37,8 +50,10 @@ export default function CartModal({
   const totalQuantity = cartEntries.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = cartEntries.reduce((sum, item) => sum + item.subtotal, 0);
 
-  const handleCheckoutPress = () => {
-    setCheckoutNotice(true);
+  const handleModalClose = () => {
+    setIsCheckout(false);
+    setCheckoutError('');
+    onClose();
   };
 
   const handleClearConfirm = () => {
@@ -52,19 +67,152 @@ export default function CartModal({
     );
   };
 
+  const handleProceedToCheckout = () => {
+    if (cartEntries.length === 0) {
+      Alert.alert('Empty Cart', 'Please add items to your cart before proceeding to checkout.');
+      return;
+    }
+
+    if (!currentUser) {
+      Alert.alert(
+        'Sign In Required',
+        'Please sign in or create a customer account to place your order.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Sign In',
+            onPress: () => {
+              handleModalClose();
+              if (onOpenAuth) onOpenAuth();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // Prefill name from email if empty
+    if (!customerName && currentUser.email) {
+      const emailName = currentUser.email.split('@')[0];
+      setCustomerName(emailName.charAt(0).toUpperCase() + emailName.slice(1));
+    }
+
+    setCheckoutError('');
+    setIsCheckout(true);
+  };
+
+  const handlePlaceOrder = async () => {
+    setCheckoutError('');
+
+    const trimmedName = customerName.trim();
+    const trimmedPhone = customerPhone.trim();
+    const trimmedAddress = deliveryAddress.trim();
+
+    if (!trimmedName) {
+      setCheckoutError('Please enter your full name.');
+      return;
+    }
+
+    if (!trimmedPhone) {
+      setCheckoutError('Please enter your contact phone number.');
+      return;
+    }
+
+    // Basic 10-digit phone validation
+    const digitsOnly = trimmedPhone.replace(/\D/g, '');
+    if (digitsOnly.length < 10) {
+      setCheckoutError('Please enter a valid 10-digit phone number.');
+      return;
+    }
+
+    if (!trimmedAddress) {
+      setCheckoutError('Please enter your complete delivery address.');
+      return;
+    }
+
+    if (trimmedAddress.length < 8) {
+      setCheckoutError('Please provide a more detailed address (e.g. House No., Street, City, PIN).');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Build order payload strictly conforming to Firestore security rules
+      const orderPayload = {
+        userId: currentUser.uid,
+        customerEmail: currentUser.email || '',
+        customerName: trimmedName,
+        customerPhone: trimmedPhone,
+        deliveryAddress: trimmedAddress,
+        items: cartEntries.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          category: item.product.category,
+          unitPrice: item.product.price,
+          quantity: item.quantity,
+          itemSubtotal: item.subtotal,
+        })),
+        totalItems: totalQuantity,
+        totalAmount: totalAmount,
+        orderStatus: 'placed',
+        paymentMethod: 'cod',
+        paymentStatus: 'pending',
+        createdAt: serverTimestamp(),
+      };
+
+      const docRef = await addDoc(collection(db, 'orders'), orderPayload);
+
+      // Successfully saved to Cloud Firestore
+      setIsSubmitting(false);
+      onClearCart(); // Clear cart only after confirmed save
+      setIsCheckout(false);
+      setCustomerName('');
+      setCustomerPhone('');
+      setDeliveryAddress('');
+      onClose();
+
+      Alert.alert(
+        'Order Placed Successfully! 🎉',
+        `Thank you for choosing Califnco Water!\n\nOrder ID: ${docRef.id}\nPayment: Cash on Delivery\nTotal Amount: ${formatPrice(totalAmount)}\n\nOur team will contact you at ${trimmedPhone} before dispatch.`,
+        [{ text: 'OK' }]
+      );
+    } catch (err) {
+      setIsSubmitting(false);
+      const friendlyError = err?.message || 'Failed to place order. Please check your connection and try again.';
+      setCheckoutError(friendlyError);
+      Alert.alert('Order Failed', friendlyError);
+    }
+  };
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent={false}
-      onRequestClose={onClose}
+      onRequestClose={handleModalClose}
     >
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         {/* Modal Top Header */}
         <View style={styles.header}>
           <View style={styles.headerTitleRow}>
-            <Text style={styles.headerTitle}>Shopping Cart</Text>
-            {totalQuantity > 0 && (
+            {isCheckout && (
+              <TouchableOpacity
+                onPress={() => setIsCheckout(false)}
+                style={styles.backButton}
+                activeOpacity={0.7}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.backButtonArrow}>←</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={styles.headerTitle}>
+              {isCheckout ? 'Checkout' : 'Shopping Cart'}
+            </Text>
+            {!isCheckout && totalQuantity > 0 && (
               <View style={styles.headerCountBadge}>
                 <Text style={styles.headerCountText}>{totalQuantity}</Text>
               </View>
@@ -72,7 +220,7 @@ export default function CartModal({
           </View>
 
           <View style={styles.headerActions}>
-            {totalQuantity > 0 && (
+            {!isCheckout && totalQuantity > 0 && (
               <TouchableOpacity
                 onPress={handleClearConfirm}
                 style={styles.clearButton}
@@ -83,35 +231,18 @@ export default function CartModal({
             )}
 
             <TouchableOpacity
-              onPress={onClose}
+              onPress={handleModalClose}
               style={styles.closeButton}
               activeOpacity={0.7}
+              disabled={isSubmitting}
             >
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Informational Checkout Notice banner when pressed */}
-        {checkoutNotice && (
-          <View style={styles.noticeBanner}>
-            <View style={styles.noticeContent}>
-              <Text style={styles.noticeTitle}>📋 Milestone Note (M1)</Text>
-              <Text style={styles.noticeText}>
-                Order checkout and persistence will be activated in Milestone M3 (Orders & Dealer). Your in-session cart total is {formatPrice(totalAmount)}.
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setCheckoutNotice(false)}
-              style={styles.noticeDismiss}
-            >
-              <Text style={styles.noticeDismissText}>Dismiss</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Content: Cart Items or Empty State */}
-        {cartEntries.length === 0 ? (
+        {/* Content: Cart Items or Checkout Form */}
+        {cartEntries.length === 0 && !isCheckout ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
               <Text style={styles.emptyIcon}>🛒</Text>
@@ -122,13 +253,156 @@ export default function CartModal({
             </Text>
             <TouchableOpacity
               style={styles.browseButton}
-              onPress={onClose}
+              onPress={handleModalClose}
               activeOpacity={0.8}
             >
               <Text style={styles.browseButtonText}>Browse Catalogue</Text>
             </TouchableOpacity>
           </View>
+        ) : isCheckout ? (
+          /* Checkout Form View */
+          <ScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Customer Account Context Banner */}
+            <View style={styles.customerContextCard}>
+              <View style={styles.customerContextRow}>
+                <Text style={styles.customerAvatarIcon}>👤</Text>
+                <View style={styles.customerContextTextGroup}>
+                  <Text style={styles.customerContextLabel}>Ordering Account</Text>
+                  <Text style={styles.customerContextEmail}>
+                    {currentUser?.email || 'Authenticated Customer'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Payment Method Badge */}
+            <View style={styles.paymentMethodCard}>
+              <View style={styles.paymentMethodHeader}>
+                <Text style={styles.paymentMethodIcon}>💵</Text>
+                <View>
+                  <Text style={styles.paymentMethodTitle}>Cash on Delivery (COD)</Text>
+                  <Text style={styles.paymentMethodSubtitle}>
+                    Pay cash upon delivery at your doorstep
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.codTag}>
+                <Text style={styles.codTagText}>FREE DELIVERY INCLUDED</Text>
+              </View>
+            </View>
+
+            {/* Error Banner */}
+            {checkoutError ? (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorIcon}>⚠️</Text>
+                <Text style={styles.errorText}>{checkoutError}</Text>
+              </View>
+            ) : null}
+
+            {/* Delivery Details Form */}
+            <View style={styles.formCard}>
+              <Text style={styles.formSectionTitle}>Delivery Details</Text>
+
+              {/* Full Name */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Recipient Full Name *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="e.g. Ramesh Kumar"
+                  placeholderTextColor="#94a3b8"
+                  value={customerName}
+                  onChangeText={(text) => {
+                    setCustomerName(text);
+                    if (checkoutError) setCheckoutError('');
+                  }}
+                  editable={!isSubmitting}
+                />
+              </View>
+
+              {/* Contact Phone */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Mobile Phone Number *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="e.g. 9876543210"
+                  placeholderTextColor="#94a3b8"
+                  value={customerPhone}
+                  onChangeText={(text) => {
+                    setCustomerPhone(text);
+                    if (checkoutError) setCheckoutError('');
+                  }}
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                  editable={!isSubmitting}
+                />
+              </View>
+
+              {/* Delivery Address */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Delivery Address (Full Address & Pincode) *</Text>
+                <TextInput
+                  style={[styles.textInput, styles.addressInput]}
+                  placeholder="House/Flat No., Street, Landmark, City, Pincode"
+                  placeholderTextColor="#94a3b8"
+                  value={deliveryAddress}
+                  onChangeText={(text) => {
+                    setDeliveryAddress(text);
+                    if (checkoutError) setCheckoutError('');
+                  }}
+                  multiline={true}
+                  numberOfLines={3}
+                  editable={!isSubmitting}
+                />
+              </View>
+            </View>
+
+            {/* Order Items Preview */}
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryTitle}>Order Summary</Text>
+
+              {cartEntries.map(({ product, quantity, subtotal }) => (
+                <View key={product.id} style={styles.checkoutItemRow}>
+                  <Text style={styles.checkoutItemName} numberOfLines={1}>
+                    {product.name} × {quantity}
+                  </Text>
+                  <Text style={styles.checkoutItemPrice}>{formatPrice(subtotal)}</Text>
+                </View>
+              ))}
+
+              <View style={styles.divider} />
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>
+                  Total Items: {totalQuantity}
+                </Text>
+                <Text style={styles.summaryValue}>{formatPrice(totalAmount)}</Text>
+              </View>
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Delivery Charges</Text>
+                <View style={styles.freeDeliveryBadge}>
+                  <Text style={styles.freeDeliveryText}>FREE</Text>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.summaryTotalRow}>
+                <View>
+                  <Text style={styles.grandTotalLabel}>Total Payable</Text>
+                  <Text style={styles.taxInclusiveText}>Pay with Cash on Delivery</Text>
+                </View>
+                <Text style={styles.grandTotalValue}>{formatPrice(totalAmount)}</Text>
+              </View>
+            </View>
+          </ScrollView>
         ) : (
+          /* Standard Cart Items View */
           <ScrollView
             style={styles.scrollArea}
             contentContainerStyle={styles.scrollContent}
@@ -216,7 +490,7 @@ export default function CartModal({
           </ScrollView>
         )}
 
-        {/* Sticky Checkout Bottom Bar (only shown when cart has items) */}
+        {/* Sticky Action Footer */}
         {cartEntries.length > 0 && (
           <View style={styles.footerBar}>
             <View style={styles.footerInfo}>
@@ -224,17 +498,38 @@ export default function CartModal({
               <Text style={styles.footerPrice}>{formatPrice(totalAmount)}</Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.checkoutButton}
-              onPress={handleCheckoutPress}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.checkoutButtonText}>Proceed to Order</Text>
-              <Text style={styles.checkoutArrow}>→</Text>
-            </TouchableOpacity>
+            {isCheckout ? (
+              <TouchableOpacity
+                style={[styles.checkoutButton, isSubmitting && styles.checkoutButtonDisabled]}
+                onPress={handlePlaceOrder}
+                activeOpacity={0.8}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator color="#ffffff" size="small" />
+                    <Text style={styles.checkoutButtonText}>Placing Order...</Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.checkoutButtonText}>Confirm Order (COD)</Text>
+                    <Text style={styles.checkoutArrow}>✓</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.checkoutButton}
+                onPress={handleProceedToCheckout}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
+                <Text style={styles.checkoutArrow}>→</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -258,6 +553,15 @@ const styles = StyleSheet.create({
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  backButton: {
+    paddingRight: 10,
+    paddingVertical: 2,
+  },
+  backButtonArrow: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0284c7',
   },
   headerTitle: {
     fontSize: 20,
@@ -302,42 +606,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#475569',
     fontWeight: '700',
-  },
-  noticeBanner: {
-    backgroundColor: '#eff6ff',
-    borderLeftWidth: 4,
-    borderLeftColor: '#0284c7',
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  noticeContent: {
-    flex: 1,
-    marginRight: 8,
-  },
-  noticeTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0369a1',
-    marginBottom: 2,
-  },
-  noticeText: {
-    fontSize: 12,
-    color: '#1e3a8a',
-    lineHeight: 16,
-  },
-  noticeDismiss: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  noticeDismissText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0284c7',
   },
   emptyContainer: {
     flex: 1,
@@ -387,6 +655,150 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 24,
+  },
+  customerContextCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  customerContextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  customerAvatarIcon: {
+    fontSize: 22,
+    marginRight: 10,
+  },
+  customerContextTextGroup: {
+    flex: 1,
+  },
+  customerContextLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    fontWeight: '700',
+  },
+  customerContextEmail: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  paymentMethodCard: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  paymentMethodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  paymentMethodIcon: {
+    fontSize: 24,
+    marginRight: 10,
+  },
+  paymentMethodTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  paymentMethodSubtitle: {
+    fontSize: 12,
+    color: '#15803d',
+  },
+  codTag: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  codTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#166534',
+    letterSpacing: 0.5,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ef4444',
+    padding: 12,
+    borderRadius: 6,
+    marginBottom: 14,
+  },
+  errorIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#b91c1c',
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  formCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  formSectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 14,
+  },
+  inputGroup: {
+    marginBottom: 14,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  textInput: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0f172a',
+  },
+  addressInput: {
+    height: 75,
+    textAlignVertical: 'top',
+  },
+  checkoutItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  checkoutItemName: {
+    fontSize: 13,
+    color: '#475569',
+    flex: 1,
+    marginRight: 8,
+  },
+  checkoutItemPrice: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0f172a',
   },
   itemsList: {
     marginBottom: 16,
@@ -487,6 +899,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    marginBottom: 14,
   },
   summaryTitle: {
     fontSize: 16,
@@ -574,9 +987,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#0284c7',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 8,
+  },
+  checkoutButtonDisabled: {
+    backgroundColor: '#93c5fd',
   },
   checkoutButtonText: {
     color: '#ffffff',
@@ -588,5 +1004,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '800',
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
