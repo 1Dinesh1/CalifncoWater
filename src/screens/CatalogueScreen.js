@@ -9,22 +9,26 @@ import {
   FlatList,
   Platform,
   Alert,
+  BackHandler,
   StatusBar as RNStatusBar,
 } from 'react-native';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 import { CATEGORIES, CATEGORY_META, PRODUCTS, formatPrice } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import CartModal from '../components/CartModal';
 import AuthModal from '../components/AuthModal';
 import OrdersModal from '../components/OrdersModal';
 import ServiceBookingModal from '../components/ServiceBookingModal';
+import DealerApplyModal from '../components/DealerApplyModal';
+import BottomNavBar from '../components/BottomNavBar';
+import AccountScreen from './AccountScreen';
 
 // Standalone Top-Level Header Component to prevent remounting and maintain TextInput focus
 function CatalogueHeader({
   totalCartCount,
   onOpenCart,
-  onOpenOrders,
   onOpenBooking,
   searchQuery,
   onSearchChange,
@@ -34,12 +38,10 @@ function CatalogueHeader({
   filteredCount,
   onResetFilters,
   currentUser,
-  onOpenAuth,
-  onProfilePress,
 }) {
   return (
     <View style={styles.headerContainer}>
-      {/* Brand Header */}
+      {/* Brand Header & Cart Button */}
       <View style={styles.topBar}>
         <View style={styles.brandContainer}>
           <View style={styles.brandIconBox}>
@@ -51,64 +53,22 @@ function CatalogueHeader({
           </View>
         </View>
 
-        {/* Header Actions Row (Orders + Auth + Cart) */}
-        <View style={styles.headerActionsRow}>
-          {/* Header Orders Button */}
-          <TouchableOpacity
-            style={styles.ordersButton}
-            onPress={onOpenOrders}
-            activeOpacity={0.7}
-            accessibilityLabel="My Orders"
-          >
-            <Text style={styles.ordersIcon}>📦</Text>
-            <Text style={styles.ordersButtonText}>Orders</Text>
-          </TouchableOpacity>
-
-          {currentUser ? (
-            <TouchableOpacity
-              style={styles.authProfileButton}
-              onPress={onProfilePress}
-              activeOpacity={0.7}
-            >
-              <View style={styles.userAvatar}>
-                <Text style={styles.userAvatarText}>
-                  {(currentUser.email || 'U')[0].toUpperCase()}
-                </Text>
-              </View>
-              <View style={styles.userEmailColumn}>
-                <Text style={styles.userEmailText} numberOfLines={1}>
-                  {currentUser.email?.split('@')[0]}
-                </Text>
-                <Text style={styles.signOutText}>Account</Text>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.signInButton}
-              onPress={onOpenAuth}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.signInIcon}>👤</Text>
-              <Text style={styles.signInButtonText}>Sign In</Text>
-            </TouchableOpacity>
+        {/* Header Cart Icon Button */}
+        <TouchableOpacity
+          style={styles.cartIconButton}
+          onPress={onOpenCart}
+          activeOpacity={0.7}
+          accessibilityLabel="Shopping Cart"
+        >
+          <Text style={styles.cartIconText}>🛒</Text>
+          {totalCartCount > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>
+                {totalCartCount > 99 ? '99+' : totalCartCount}
+              </Text>
+            </View>
           )}
-
-          {/* Header Cart Icon Button */}
-          <TouchableOpacity
-            style={styles.cartIconButton}
-            onPress={onOpenCart}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cartIconText}>🛒</Text>
-            {totalCartCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>
-                  {totalCartCount > 99 ? '99+' : totalCartCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Hero Welcome Card */}
@@ -127,24 +87,6 @@ function CatalogueHeader({
               ? 'Browse genuine water purifiers, dispensers, replacement cartridges & accessories.'
               : 'Explore our genuine purifiers, dispensers, replacement cartridges & accessories.'}
           </Text>
-          {currentUser && (
-            <View style={styles.heroActionsRow}>
-              <TouchableOpacity
-                style={styles.heroOrdersPill}
-                onPress={onOpenOrders}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.heroOrdersPillText}>📦 View Orders</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.heroServicePill}
-                onPress={onOpenBooking}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.heroServicePillText}>🛠️ Book Service</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
         <Text style={styles.heroIllustration}>🚰</Text>
       </View>
@@ -295,50 +237,99 @@ function EmptyResults({ searchQuery, onResetFilters }) {
 }
 
 export default function CatalogueScreen() {
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'account'
   const [currentUser, setCurrentUser] = useState(null);
   const [authModalVisible, setAuthModalVisible] = useState(false);
   const [ordersModalVisible, setOrdersModalVisible] = useState(false);
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
+  const [dealerModalVisible, setDealerModalVisible] = useState(false);
+  const [dealerStatus, setDealerStatus] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cart, setCart] = useState({});
   const [cartModalVisible, setCartModalVisible] = useState(false);
 
-  // Track Firebase customer authentication state
+  // Track Firebase customer authentication state & dealer application status
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user?.uid) {
+        try {
+          const snap = await getDoc(doc(db, 'dealers', user.uid));
+          if (snap.exists()) {
+            setDealerStatus(snap.data()?.status || 'pending');
+          } else {
+            setDealerStatus(null);
+          }
+        } catch {
+          setDealerStatus(null);
+        }
+      } else {
+        setDealerStatus(null);
+      }
     });
     return unsubscribe;
   }, []);
 
-  const handleProfilePress = () => {
-    Alert.alert(
-      'Customer Account',
-      `Signed in as: ${currentUser?.email || 'Customer'}`,
-      [
-        {
-          text: 'Book a Service',
-          onPress: () => setBookingModalVisible(true),
-        },
-        {
-          text: 'My Orders',
-          onPress: () => setOrdersModalVisible(true),
-        },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-            } catch (err) {
-              Alert.alert('Sign Out Error', err?.message || 'Failed to sign out.');
-            }
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
+  // Android Hardware Back button handling
+  useEffect(() => {
+    const onHardwareBack = () => {
+      // 1. Dismiss active modals in order of precedence
+      if (cartModalVisible) {
+        setCartModalVisible(false);
+        return true;
+      }
+      if (ordersModalVisible) {
+        setOrdersModalVisible(false);
+        return true;
+      }
+      if (bookingModalVisible) {
+        setBookingModalVisible(false);
+        return true;
+      }
+      if (dealerModalVisible) {
+        setDealerModalVisible(false);
+        return true;
+      }
+      if (authModalVisible) {
+        setAuthModalVisible(false);
+        return true;
+      }
+      // 2. If on Account tab, navigate smoothly back to Home
+      if (activeTab !== 'home') {
+        setActiveTab('home');
+        return true;
+      }
+      // 3. If on Home with no modals open, let standard Android back action occur
+      return false;
+    };
+
+    const backSub = BackHandler.addEventListener(
+      'hardwareBackPress',
+      onHardwareBack
     );
+
+    return () => backSub.remove();
+  }, [
+    cartModalVisible,
+    ordersModalVisible,
+    bookingModalVisible,
+    dealerModalVisible,
+    authModalVisible,
+    activeTab,
+  ]);
+
+  // Bottom navigation tab press handler
+  const handleTabPress = (tabKey) => {
+    if (tabKey === 'orders') {
+      setOrdersModalVisible(true);
+    } else if (tabKey === 'services') {
+      setBookingModalVisible(true);
+    } else if (tabKey === 'account') {
+      setActiveTab('account');
+    } else {
+      setActiveTab('home');
+    }
   };
 
   // Cart operations
@@ -422,52 +413,64 @@ export default function CatalogueScreen() {
 
   return (
     <View style={styles.screen}>
-      <FlatList
-        data={filteredProducts}
-        keyExtractor={(item) => item.id}
-        keyboardShouldPersistTaps="handled"
-        renderItem={({ item }) => (
-          <ProductCard
-            product={item}
-            quantity={cart[item.id] || 0}
-            onAddToCart={handleAddToCart}
-            onIncrement={handleIncrement}
-            onDecrement={handleDecrement}
-          />
-        )}
-        ListHeaderComponent={
-          <CatalogueHeader
-            totalCartCount={totalCartCount}
-            onOpenCart={() => setCartModalVisible(true)}
-            onOpenOrders={() => setOrdersModalVisible(true)}
-            onOpenBooking={() => setBookingModalVisible(true)}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-            categoryCounts={categoryCounts}
-            filteredCount={filteredProducts.length}
-            onResetFilters={handleResetFilters}
-            currentUser={currentUser}
-            onOpenAuth={() => setAuthModalVisible(true)}
-            onProfilePress={handleProfilePress}
-          />
-        }
-        ListEmptyComponent={
-          <EmptyResults
-            searchQuery={searchQuery}
-            onResetFilters={handleResetFilters}
-          />
-        }
-        contentContainerStyle={[
-          styles.listContent,
-          totalCartCount > 0 && styles.listContentWithCartBar,
-        ]}
-        showsVerticalScrollIndicator={false}
-      />
+      {/* Active View: Account Screen or Catalogue Home */}
+      {activeTab === 'account' ? (
+        <AccountScreen
+          currentUser={currentUser}
+          dealerStatus={dealerStatus}
+          onOpenDealer={() => setDealerModalVisible(true)}
+          onOpenOrders={() => setOrdersModalVisible(true)}
+          onOpenService={() => setBookingModalVisible(true)}
+          onOpenAuth={() => setAuthModalVisible(true)}
+          onBackToHome={() => setActiveTab('home')}
+        />
+      ) : (
+        <FlatList
+          data={filteredProducts}
+          keyExtractor={(item) => item.id}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <ProductCard
+              product={item}
+              quantity={cart[item.id] || 0}
+              onAddToCart={handleAddToCart}
+              onIncrement={handleIncrement}
+              onDecrement={handleDecrement}
+            />
+          )}
+          ListHeaderComponent={
+            <CatalogueHeader
+              totalCartCount={totalCartCount}
+              onOpenCart={() => setCartModalVisible(true)}
+              onOpenBooking={() => setBookingModalVisible(true)}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+              categoryCounts={categoryCounts}
+              filteredCount={filteredProducts.length}
+              onResetFilters={handleResetFilters}
+              currentUser={currentUser}
+            />
+          }
+          ListEmptyComponent={
+            <EmptyResults
+              searchQuery={searchQuery}
+              onResetFilters={handleResetFilters}
+            />
+          }
+          contentContainerStyle={[
+            styles.listContent,
+            totalCartCount > 0
+              ? styles.listContentWithCartBarAndNav
+              : styles.listContentWithNav,
+          ]}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
-      {/* Floating Bottom Cart Bar */}
-      {totalCartCount > 0 && (
+      {/* Floating Bottom Cart Bar (active on Home when cart has items) */}
+      {activeTab === 'home' && totalCartCount > 0 && (
         <View style={styles.bottomCartBar}>
           <View style={styles.bottomCartInfo}>
             <View style={styles.bottomCartCountBadge}>
@@ -491,6 +494,13 @@ export default function CatalogueScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Persistent Bottom Tab Navigation Bar */}
+      <BottomNavBar
+        activeTab={activeTab}
+        onTabPress={handleTabPress}
+        currentUser={currentUser}
+      />
 
       {/* Shopping Cart Modal */}
       <CartModal
@@ -526,6 +536,15 @@ export default function CatalogueScreen() {
         currentUser={currentUser}
         onOpenAuth={() => setAuthModalVisible(true)}
       />
+
+      {/* Dealer Application Modal */}
+      <DealerApplyModal
+        visible={dealerModalVisible}
+        onClose={() => setDealerModalVisible(false)}
+        currentUser={currentUser}
+        onOpenAuth={() => setAuthModalVisible(true)}
+        onStatusUpdated={(status) => setDealerStatus(status)}
+      />
     </View>
   );
 }
@@ -538,8 +557,11 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 24,
   },
-  listContentWithCartBar: {
-    paddingBottom: 90,
+  listContentWithNav: {
+    paddingBottom: Platform.OS === 'ios' ? 84 : 68,
+  },
+  listContentWithCartBarAndNav: {
+    paddingBottom: Platform.OS === 'ios' ? 148 : 130,
   },
   headerContainer: {
     backgroundColor: '#ffffff',
@@ -550,126 +572,41 @@ const styles = StyleSheet.create({
   },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 24) + 8 : 12,
-    paddingBottom: 12,
+    paddingTop: Platform.OS === 'ios' ? 44 : RNStatusBar.currentHeight || 12,
+    paddingBottom: 10,
   },
   brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
     flex: 1,
-    marginRight: 6,
   },
   brandIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 10,
     backgroundColor: '#e0f2fe',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
   },
   brandIcon: {
     fontSize: 20,
   },
   brandTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     color: '#0f172a',
     letterSpacing: -0.3,
   },
   brandTagline: {
-    fontSize: 10,
-    color: '#0284c7',
-    fontWeight: '600',
-  },
-  headerActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ordersButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    borderRadius: 8,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  ordersIcon: {
-    fontSize: 13,
-    marginRight: 4,
-  },
-  ordersButtonText: {
-    color: '#0f172a',
     fontSize: 11,
-    fontWeight: '700',
-  },
-  signInButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e0f2fe',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 8,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: '#bae6fd',
-  },
-  signInIcon: {
-    fontSize: 13,
-    marginRight: 4,
-  },
-  signInButtonText: {
-    color: '#0284c7',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  authProfileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 7,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    maxWidth: 110,
-  },
-  userAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#0284c7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 5,
-  },
-  userAvatarText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  userEmailColumn: {
-    flexDirection: 'column',
-    justifyContent: 'center',
-  },
-  userEmailText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0f172a',
-    maxWidth: 65,
-  },
-  signOutText: {
-    fontSize: 8,
-    color: '#0284c7',
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    color: '#64748b',
+    fontWeight: '500',
   },
   cartIconButton: {
     width: 40,
@@ -679,6 +616,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    marginLeft: 12,
   },
   cartIconText: {
     fontSize: 18,
@@ -713,6 +651,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     elevation: 3,
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
   heroContent: {
     flex: 1,
@@ -737,42 +679,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  heroActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
-  },
-  heroOrdersPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-  },
-  heroOrdersPillText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  heroServicePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#ffffff',
-  },
-  heroServicePillText: {
-    color: '#0284c7',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
   heroIllustration: {
     fontSize: 42,
   },
@@ -780,16 +686,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 10,
   },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  searchIcon: {
+    fontSize: 15,
+    marginRight: 8,
+    opacity: 0.6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0f172a',
+    paddingVertical: 0,
+  },
+  searchClearBtn: {
+    padding: 4,
+  },
+  searchClearText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    fontWeight: '700',
+  },
   servicePromoSection: {
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   servicePromoCard: {
-    backgroundColor: '#f0f9ff',
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
     borderRadius: 12,
     padding: 12,
-    borderWidth: 1,
-    borderColor: '#bae6fd',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -797,17 +732,17 @@ const styles = StyleSheet.create({
   servicePromoLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
     flex: 1,
     marginRight: 8,
   },
   servicePromoIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#e0f2fe',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#dcfce7',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
   },
   servicePromoIcon: {
     fontSize: 18,
@@ -817,29 +752,29 @@ const styles = StyleSheet.create({
   },
   servicePromoBadgeRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 2,
   },
   servicePromoBadge: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#0284c7',
-    letterSpacing: 0.5,
+    color: '#16a34a',
+    letterSpacing: 0.6,
   },
   servicePromoTitle: {
     fontSize: 13,
     fontWeight: '800',
     color: '#0f172a',
-    lineHeight: 16,
+    marginBottom: 1,
   },
   servicePromoSubtitle: {
     fontSize: 11,
-    color: '#64748b',
-    marginTop: 2,
+    color: '#475569',
   },
   servicePromoButton: {
-    backgroundColor: '#0284c7',
+    backgroundColor: '#16a34a',
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 6,
   },
   servicePromoButtonText: {
@@ -847,90 +782,64 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 46,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#0f172a',
-    paddingVertical: 0,
-  },
-  searchClearBtn: {
-    padding: 6,
-  },
-  searchClearText: {
-    fontSize: 14,
-    color: '#94a3b8',
-    fontWeight: '700',
-  },
   categoriesSection: {
     marginBottom: 10,
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#475569',
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
     paddingHorizontal: 16,
     marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
   },
   categoryPillsList: {
     paddingHorizontal: 16,
+    gap: 8,
   },
   categoryPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#f8fafc',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 20,
-    marginRight: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    gap: 6,
   },
   categoryPillActive: {
     backgroundColor: '#0284c7',
     borderColor: '#0284c7',
   },
   categoryPillIcon: {
-    fontSize: 14,
-    marginRight: 6,
+    fontSize: 13,
   },
   categoryPillLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
-    marginRight: 6,
+    color: '#475569',
   },
   categoryPillLabelActive: {
     color: '#ffffff',
+    fontWeight: '700',
   },
   categoryCountBadge: {
     backgroundColor: '#e2e8f0',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
+    minWidth: 18,
+    alignItems: 'center',
   },
   categoryCountBadgeActive: {
-    backgroundColor: '#0369a1',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   categoryCountText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
+    color: '#64748b',
   },
   categoryCountTextActive: {
     color: '#ffffff',
@@ -940,23 +849,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingTop: 6,
   },
   resultsCountText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#64748b',
   },
   resetFiltersText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#0284c7',
   },
   emptyResultsContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: 32,
-    paddingVertical: 48,
+    paddingVertical: 64,
   },
   emptyResultsIcon: {
     fontSize: 48,
@@ -964,7 +872,7 @@ const styles = StyleSheet.create({
   },
   emptyResultsTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0f172a',
     marginBottom: 6,
   },
@@ -973,11 +881,11 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   resetButton: {
     backgroundColor: '#0284c7',
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
   },
@@ -988,70 +896,73 @@ const styles = StyleSheet.create({
   },
   bottomCartBar: {
     position: 'absolute',
-    bottom: 0,
+    bottom: Platform.OS === 'ios' ? 76 : 58,
     left: 0,
     right: 0,
-    backgroundColor: '#0f172a',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    elevation: 8,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.15,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    elevation: 10,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
     shadowRadius: 6,
+    zIndex: 30,
   },
   bottomCartInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
   bottomCartCountBadge: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#e0f2fe',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
-    marginRight: 10,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#bae6fd',
   },
   bottomCartCountText: {
-    color: '#38bdf8',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#0284c7',
   },
   bottomCartPriceGroup: {
     flexDirection: 'column',
   },
   bottomCartTotalLabel: {
-    color: '#94a3b8',
     fontSize: 10,
+    color: '#64748b',
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   bottomCartTotalPrice: {
-    color: '#ffffff',
     fontSize: 16,
     fontWeight: '800',
+    color: '#0f172a',
   },
   viewCartButton: {
-    backgroundColor: '#0284c7',
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#0284c7',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 10,
+    gap: 6,
   },
   viewCartButtonText: {
     color: '#ffffff',
     fontSize: 13,
-    fontWeight: '700',
-    marginRight: 4,
+    fontWeight: '800',
   },
   viewCartArrow: {
     color: '#ffffff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
 });

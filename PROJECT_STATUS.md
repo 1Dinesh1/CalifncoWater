@@ -51,7 +51,7 @@ D:\CalifncoProject\CalifncoWater
     - Sign out and sign back in with valid credentials.
     - Verify header and hero banner update with customer email.
     - Verify catalogue and cart work seamlessly before, during, and after login.
-- M3-orders-dealer: IMPLEMENTED (Checkout, My Orders, and Service Booking implemented; pending manual Android device verification).
+- M3-orders-dealer: IMPLEMENTED (Customer Checkout, My Orders, Service Booking, and Dealer Application/Approval Step 1 implemented; pending manual Android device verification).
   - Implemented features:
     - Cloud Firestore integration via `src/firebase.js` exporting `db = getFirestore(app)`.
     - Cash on Delivery checkout modal in `src/components/CartModal.js`: collects customer name, phone, delivery address, validates inputs, and submits order payload with `serverTimestamp()` to `orders` collection.
@@ -70,34 +70,72 @@ D:\CalifncoProject\CalifncoWater
       - Contact phone number with 10-digit validation and optional customer name.
       - Full service address input with min 8-character completeness check.
       - Optional notes input for machine model and specific issue details.
-      - Conforms strictly to `firestore.rules`: writes only allowed fields (`userId`, `customerEmail`, `customerPhone`, `serviceType`, `preferredDate`, `preferredSlot`, `address`, optional `customerName`, optional `notes`, `bookingStatus: 'requested'`, and `createdAt: serverTimestamp()`) to `serviceBookings` collection.
+      - Conforms strictly to `firestore.rules`: writes only allowed fields to `serviceBookings` collection.
       - Duplicate submission prevention: disables submit button and displays activity spinner while saving.
       - Success confirmation alert displayed only after Firestore confirms write, followed by form reset and modal dismissal.
       - Guest state: prompts unauthenticated guests to sign in with a single tap to open `AuthModal`.
-    - Entry points in `src/screens/CatalogueScreen.js`:
-      - Clear `[ 📦 Orders ]` button in the top header action row.
-      - `[ 📦 View Orders ]` and `[ 🛠️ Book Service ]` action pills in the hero welcome card for signed-in customers.
-      - Prominent "Water Purifier Service & Repair" card banner above catalogue categories.
-      - "Book a Service" and "My Orders" options in the customer account menu when tapping user profile avatar.
-      - Top bar layout remains clean, balanced, and free from overcrowding.
+    - Dealer Application & Admin Approval/Rejection (Step 1):
+      - Created `src/components/DealerApplyModal.js` using the existing authenticated Firebase user.
+      - Collects Business/Dealership Name (min 3 chars), Contact Mobile Phone (validated 10 digits), City/Town (min 2 chars), and optional GSTIN (validated 15 chars).
+      - Stores application in `/dealers/{currentUser.uid}` with `userId`, `email`, `businessName`, `phone`, `city`, optional `gstNumber`, `status: 'pending'`, and `createdAt: serverTimestamp()`.
+      - Prevents duplicate applications from overwriting an existing approved/rejected profile: checks for existing profile and displays status card (`pending`, `approved`, `rejected`) with full details.
+      - Added clear entry points in `src/screens/CatalogueScreen.js`:
+        - Account menu option (`Apply for Dealership` / `Dealership Status: Pending/Approved/Declined`).
+        - Hero card action pill (`🏢 Dealership` / `⏳ Pending` / `🏢 Partner`).
+        - Guest handling: unauthenticated guests are prompted to sign in with a single tap to `AuthModal`.
+      - Added "🏢 Dealers Desk" in `admin-web`:
+        - New component `admin-web/src/components/DealersTable.jsx` with search bar (by business name, email, phone, city, GST, or UID), status filter dropdown (`All`, `pending`, `approved`, `rejected`), applied dates, and responsive table layout.
+        - One-click "✓ Approve" and "✕ Reject" actions updating only the `status` field in Firestore.
+        - Added dealer statistics card to `StatCards.jsx` showing authorized dealer count and pending request counter.
+        - Built and verified with Vite 6 (0 errors).
+      - Mobile Navigation Redesign & Dedicated Account UI:
+      - Implemented bottom navigation bar (`src/components/BottomNavBar.js`) with 4 tabs: 🏠 Home, 📦 My Orders, 🛠️ Services, 👤 Account (or 🔐 Sign In when logged out).
+      - Home tab displays the complete product catalogue with category filter pills, search input, and cart stepper controls.
+      - Top header streamlined: brand title and tagline on left, persistent cart button with item count badge on right.
+      - Removed overcrowded header buttons and hero card pill clutter in favor of persistent bottom tab navigation.
+      - Dedicated `AccountScreen` (`src/screens/AccountScreen.js`):
+        - For signed-in users: displays user email, verified customer badge, shortened UID, dealership program status card (with status badge and action button), quick navigation links (My Orders, Book Service), customer care information, and a clearly visible, red-bordered Sign Out button with native confirmation dialog.
+        - For signed-out users: displays welcoming guest banner, prominent Sign In/Register button, dealership preview, and support details.
+        - Back button (`← Store`) returns user directly to the Home catalogue.
+      - Android Hardware Back Handling:
+        - Listens to `BackHandler` `hardwareBackPress` events.
+        - Dismisses any active modal (CartModal, OrdersModal, ServiceBookingModal, DealerApplyModal, AuthModal) in precedence.
+        - If on Account tab, navigates smoothly back to Home tab.
+        - If on Home with no modals open, allows default Android exit behavior. Never traps the user.
+      - Floating Bottom Cart Bar:
+        - Positioned cleanly above the bottom navigation bar (`bottom: 58px`).
+        - Product list content padding adjusts dynamically so products and controls are never obscured.
+    - Security Rules in `firestore.rules` and `firestore.rules.proposed`:
+      - Authenticated users can read only their own `/dealers/{uid}` document (`request.auth.uid == dealerId`).
+      - Authenticated users can create only their own document (`request.auth.uid == dealerId`), strictly enforcing initial status `'pending'`, server timestamp, required fields, and field allowlist.
+      - Normal users cannot update or delete `/dealers` records (prevents self-approval or profile overwrites).
+      - Authorized administrators (`isAdmin()`) can read all dealer applications and update ONLY the `status` field to `['pending', 'approved', 'rejected']`.
+      - Customer `orders`, `serviceBookings`, and `admins` security rules remain 100% intact.
+      - Note: Local rules match the mobile payload exactly; "Missing or insufficient permissions" occurs when live Firebase Console has not yet been updated with the reviewed rules.
   - Remaining manual tests on Android (Expo Go):
+    - Bottom Tabs & Navigation:
+      - Launch Expo Go and verify the persistent bottom navigation bar is visible with 4 tabs.
+      - Tap "My Orders" tab; verify Orders modal opens. Tap top right `✕` or Android hardware back; verify modal closes cleanly.
+      - Tap "Services" tab; verify Service Booking modal opens. Tap top right `✕` or Android hardware back; verify modal closes cleanly.
+      - Tap "Account" tab; verify the dedicated Account screen renders with top `← Store` back button.
+      - Tap `← Store` or press Android hardware back; verify screen returns to Home.
+    - Authentication Flow & Sign Out in Account Screen:
+      - While logged out, navigate to Account tab; verify guest prompt with "Sign In / Register" button.
+      - Tap "Sign In / Register"; sign in with valid credentials.
+      - Verify Account screen re-renders showing your email, verified badge, and dealership status.
+      - Tap "Sign Out of Account"; verify confirmation prompt appears. Tap "Sign Out"; verify app resets to signed-out state.
     - Orders & Checkout:
-      - Sign in as an authenticated customer.
-      - Add products to cart and proceed to checkout.
-      - Submit Cash on Delivery order and verify success dialog with order ID.
-      - Tap "Orders" in the header to open "My Orders" and confirm the order appears at the top.
-      - Test empty state with a newly registered user with zero orders.
-      - Test guest prompt when opening "My Orders" while logged out.
-    - Service Booking:
-      - Tap "Book Now" on the service banner or hero pill while logged out; verify guest sign-in prompt is displayed.
-      - Sign in with a customer account.
-      - Tap "Book Service" in the hero card, the service banner, or the account menu.
-      - Test validation errors: empty phone number, < 10 digits, empty address (< 8 chars).
-      - Fill valid phone number, select a date pill, select a time slot, enter complete address, select a service type (e.g. Repair or Maintenance), add optional notes, and tap "Request Service Booking".
-      - Verify the button shows a saving spinner and prevents duplicate taps.
-      - Verify success alert appears with Firestore Booking ID, service type, date, slot, and phone number.
-      - Tap OK and verify the form resets and the modal closes cleanly.
-- M4-admin: IMPLEMENTED (Separate React + Vite web admin panel created in `admin-web/`; pending manual testing & Firebase admin authorization deployment).
+      - Add items to cart; verify header cart button badge updates.
+      - Verify floating bottom cart bar appears above the bottom tab bar.
+      - Tap "View Cart"; proceed to checkout and place a Cash on Delivery order.
+      - Open "My Orders" from the bottom tabs or Account screen; confirm order appears at top.
+    - Dealer Application & Permissions:
+      - Sign in as a customer. Go to Account tab > "Apply for Dealership".
+      - Fill business name, phone, city, optional GST; submit application.
+      - Once rules are published in Firebase Console, verify write succeeds and status transitions to "Application Pending Review".
+      - In `admin-web`, log in as admin, switch to "🏢 Dealers Desk", verify application appears, and click "✓ Approve".
+      - Return to mobile Account tab; verify status card displays "Dealership Active - ✅ AUTHORIZED DEALER".
+- M4-admin: IMPLEMENTED & DEPLOYED (Separate React + Vite web admin panel created in `admin-web/`, deployed on Vercel, and verified with live dealer approval).
   - Files created:
     - `admin-web/package.json`: Vite + React + Firebase Web SDK setup.
     - `admin-web/vite.config.js`: Vite configuration with React plugin.
@@ -167,4 +205,4 @@ D:\CalifncoProject\CalifncoWater
 9. Do not claim a feature works until it has been tested.
 10. If switching AI editors, save all files, review Git status, and provide the next editor with a project handoff.
 ## Next Action
-Run `admin-web` locally using `npm run dev`, verify the admin login and dashboard UI, and optionally configure the `admins/{uid}` document and deploy `firestore.rules.proposed` in Firebase Console for live data testing.
+Proceed with Step 2 of the dealer feature: wholesale pricing that differs from customer prices, dealer bulk ordering, and dealer order history.

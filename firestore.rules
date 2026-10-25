@@ -24,6 +24,60 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------
+    // Dealer Applications & Registry Collection
+    // -------------------------------------------------------------
+    match /dealers/{dealerId} {
+      // Dealers can read their own application status; Admins can read all dealer applications
+      allow read: if isAuthenticated() && (request.auth.uid == dealerId || isAdmin());
+
+      // Authenticated users can submit a dealer application strictly for their own UID
+      allow create: if isAuthenticated()
+        // Ownership verification: doc ID and userId must match request.auth.uid
+        && request.auth.uid == dealerId
+        && request.resource.data.userId == request.auth.uid
+        // Enforce required fields
+        && request.resource.data.keys().hasAll([
+          'userId', 'email', 'businessName', 'phone', 'city',
+          'status', 'createdAt'
+        ])
+        // Field whitelist: reject unexpected fields (optional gstNumber permitted)
+        && request.resource.data.keys().hasOnly([
+          'userId', 'email', 'businessName', 'phone', 'city',
+          'gstNumber', 'status', 'createdAt'
+        ])
+        // Data type validation
+        && request.resource.data.email is string
+        && request.resource.data.businessName is string
+        && request.resource.data.businessName.size() >= 2
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() >= 10
+        && request.resource.data.city is string
+        && request.resource.data.city.size() >= 2
+        && (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string)
+        // Enforce initial status: must be 'pending' (prevent self-approval)
+        && request.resource.data.status == 'pending'
+        // Server timestamp enforcement
+        && request.resource.data.createdAt == request.time;
+
+      // Only verified administrators can update, and ONLY the status field to valid enum values
+      allow update: if isAdmin()
+        // Enforce affected keys allowlist: only 'status' can be changed
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        // Enforce valid status values
+        && request.resource.data.status in ['pending', 'approved', 'rejected']
+        // Ensure all immutable dealer application details remain strictly identical
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.businessName == resource.data.businessName
+        && request.resource.data.phone == resource.data.phone
+        && request.resource.data.city == resource.data.city
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Deletions are completely denied
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------
     // Customer Orders Collection
     // -------------------------------------------------------------
     match /orders/{orderId} {
