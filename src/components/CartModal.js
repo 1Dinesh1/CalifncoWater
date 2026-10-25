@@ -15,6 +15,7 @@ import {
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { formatPrice, getProductPrice } from '../data/products';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function CartModal({
   visible,
@@ -29,6 +30,7 @@ export default function CartModal({
   isApprovedDealer = false,
   dealerBusinessName = '',
 }) {
+  const { theme, isDark } = useTheme();
   const [isCheckout, setIsCheckout] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -209,11 +211,11 @@ export default function CartModal({
       onRequestClose={handleModalClose}
     >
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: theme.background }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Modal Top Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
           <View style={styles.headerTitleRow}>
             {isCheckout && (
               <TouchableOpacity
@@ -222,14 +224,14 @@ export default function CartModal({
                 activeOpacity={0.7}
                 disabled={isSubmitting}
               >
-                <Text style={styles.backButtonArrow}>←</Text>
+                <Text style={[styles.backButtonArrow, { color: theme.primary }]}>←</Text>
               </TouchableOpacity>
             )}
-            <Text style={styles.headerTitle}>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>
               {isCheckout ? 'Checkout' : 'Shopping Cart'}
             </Text>
             {!isCheckout && totalQuantity > 0 && (
-              <View style={styles.headerCountBadge}>
+              <View style={[styles.headerCountBadge, { backgroundColor: theme.primaryDark }]}>
                 <Text style={styles.headerCountText}>{totalQuantity}</Text>
               </View>
             )}
@@ -248,11 +250,11 @@ export default function CartModal({
 
             <TouchableOpacity
               onPress={handleModalClose}
-              style={styles.closeButton}
+              style={[styles.closeButton, { backgroundColor: theme.surfaceSubtle }]}
               activeOpacity={0.7}
               disabled={isSubmitting}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={[styles.closeButtonText, { color: theme.textMuted }]}>✕</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -260,15 +262,15 @@ export default function CartModal({
         {/* Content: Cart Items or Checkout Form */}
         {cartEntries.length === 0 && !isCheckout ? (
           <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
+            <View style={[styles.emptyIconCircle, { backgroundColor: theme.primaryLight }]}>
               <Text style={styles.emptyIcon}>🛒</Text>
             </View>
-            <Text style={styles.emptyTitle}>Your cart is empty</Text>
-            <Text style={styles.emptySubtitle}>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Your cart is empty</Text>
+            <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
               Explore our range of water purifiers, dispensers, and replacement filters to add items.
             </Text>
             <TouchableOpacity
-              style={styles.browseButton}
+              style={[styles.browseButton, { backgroundColor: theme.primaryDark }]}
               onPress={handleModalClose}
               activeOpacity={0.8}
             >
@@ -284,12 +286,12 @@ export default function CartModal({
             showsVerticalScrollIndicator={false}
           >
             {/* Customer Account Context Banner */}
-            <View style={styles.customerContextCard}>
+            <View style={[styles.customerContextCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={styles.customerContextRow}>
                 <Text style={styles.customerAvatarIcon}>👤</Text>
                 <View style={styles.customerContextTextGroup}>
-                  <Text style={styles.customerContextLabel}>Ordering Account</Text>
-                  <Text style={styles.customerContextEmail}>
+                  <Text style={[styles.customerContextLabel, { color: theme.textMuted }]}>Ordering Account</Text>
+                  <Text style={[styles.customerContextEmail, { color: theme.text }]}>
                     {currentUser?.email || 'Authenticated Customer'}
                   </Text>
                 </View>
@@ -298,12 +300,12 @@ export default function CartModal({
 
             {/* Dealer Wholesale Context Banner */}
             {isApprovedDealer && (
-              <View style={styles.dealerWholesaleCheckoutCard}>
+              <View style={[styles.dealerWholesaleCheckoutCard, { backgroundColor: isDark ? '#064e3b' : '#f0fdf4', borderColor: isDark ? '#059669' : '#86efac' }]}>
                 <View style={styles.dealerWholesaleCheckoutRow}>
                   <Text style={styles.dealerWholesaleIcon}>🏢</Text>
                   <View style={styles.dealerWholesaleTextCol}>
-                    <Text style={styles.dealerWholesaleTitle}>Authorized Dealer Wholesale Order</Text>
-                    <Text style={styles.dealerWholesaleSubtitle}>
+                    <Text style={[styles.dealerWholesaleTitle, { color: isDark ? '#34d399' : '#166534' }]}>Authorized Dealer Wholesale Order</Text>
+                    <Text style={[styles.dealerWholesaleSubtitle, { color: isDark ? '#a7f3d0' : '#15803d' }]}>
                       {dealerBusinessName ? `${dealerBusinessName} • ` : ''}Trade Margins Applied
                     </Text>
                   </View>
@@ -312,40 +314,40 @@ export default function CartModal({
             )}
 
             {/* Payment Method Badge */}
-            <View style={styles.paymentMethodCard}>
+            <View style={[styles.paymentMethodCard, { backgroundColor: isDark ? '#0b1f14' : '#f0fdf4', borderColor: isDark ? '#059669' : '#bbf7d0' }]}>
               <View style={styles.paymentMethodHeader}>
                 <Text style={styles.paymentMethodIcon}>💵</Text>
                 <View>
-                  <Text style={styles.paymentMethodTitle}>Cash on Delivery (COD)</Text>
-                  <Text style={styles.paymentMethodSubtitle}>
+                  <Text style={[styles.paymentMethodTitle, { color: isDark ? '#34d399' : '#166534' }]}>Cash on Delivery (COD)</Text>
+                  <Text style={[styles.paymentMethodSubtitle, { color: isDark ? '#a7f3d0' : '#15803d' }]}>
                     Pay cash upon delivery at your doorstep
                   </Text>
                 </View>
               </View>
-              <View style={styles.codTag}>
-                <Text style={styles.codTagText}>FREE DELIVERY INCLUDED</Text>
+              <View style={[styles.codTag, { backgroundColor: isDark ? '#064e3b' : '#dcfce7' }]}>
+                <Text style={[styles.codTagText, { color: isDark ? '#34d399' : '#166534' }]}>FREE DELIVERY INCLUDED</Text>
               </View>
             </View>
 
             {/* Error Banner */}
             {checkoutError ? (
-              <View style={styles.errorBanner}>
+              <View style={[styles.errorBanner, { backgroundColor: isDark ? '#450a0a' : '#fef2f2' }]}>
                 <Text style={styles.errorIcon}>⚠️</Text>
-                <Text style={styles.errorText}>{checkoutError}</Text>
+                <Text style={[styles.errorText, { color: isDark ? '#fca5a5' : '#b91c1c' }]}>{checkoutError}</Text>
               </View>
             ) : null}
 
             {/* Delivery Details Form */}
-            <View style={styles.formCard}>
-              <Text style={styles.formSectionTitle}>Delivery Details</Text>
+            <View style={[styles.formCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={[styles.formSectionTitle, { color: theme.text }]}>Delivery Details</Text>
 
               {/* Full Name */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Recipient Full Name *</Text>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>Recipient Full Name *</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
                   placeholder="e.g. Ramesh Kumar"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.textSubtle}
                   value={customerName}
                   onChangeText={(text) => {
                     setCustomerName(text);
@@ -357,11 +359,11 @@ export default function CartModal({
 
               {/* Contact Phone */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Mobile Phone Number *</Text>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>Mobile Phone Number *</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
                   placeholder="e.g. 9876543210"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.textSubtle}
                   value={customerPhone}
                   onChangeText={(text) => {
                     setCustomerPhone(text);
@@ -375,11 +377,11 @@ export default function CartModal({
 
               {/* Delivery Address */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Delivery Address (Full Address & Pincode) *</Text>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>Delivery Address (Full Address & Pincode) *</Text>
                 <TextInput
-                  style={[styles.textInput, styles.addressInput]}
+                  style={[styles.textInput, styles.addressInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
                   placeholder="House/Flat No., Street, Landmark, City, Pincode"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.textSubtle}
                   value={deliveryAddress}
                   onChangeText={(text) => {
                     setDeliveryAddress(text);
@@ -393,42 +395,42 @@ export default function CartModal({
             </View>
 
             {/* Order Items Preview */}
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Order Summary</Text>
+            <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={[styles.summaryTitle, { color: theme.text }]}>Order Summary</Text>
 
               {cartEntries.map(({ product, quantity, subtotal }) => (
                 <View key={product.id} style={styles.checkoutItemRow}>
-                  <Text style={styles.checkoutItemName} numberOfLines={1}>
+                  <Text style={[styles.checkoutItemName, { color: theme.textMuted }]} numberOfLines={1}>
                     {product.name} × {quantity}
                   </Text>
-                  <Text style={styles.checkoutItemPrice}>{formatPrice(subtotal)}</Text>
+                  <Text style={[styles.checkoutItemPrice, { color: theme.text }]}>{formatPrice(subtotal)}</Text>
                 </View>
               ))}
 
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: theme.borderSubtle }]} />
 
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>
+                <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>
                   Total Items: {totalQuantity}
                 </Text>
-                <Text style={styles.summaryValue}>{formatPrice(totalAmount)}</Text>
+                <Text style={[styles.summaryValue, { color: theme.text }]}>{formatPrice(totalAmount)}</Text>
               </View>
 
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Delivery Charges</Text>
-                <View style={styles.freeDeliveryBadge}>
-                  <Text style={styles.freeDeliveryText}>FREE</Text>
+                <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>Delivery Charges</Text>
+                <View style={[styles.freeDeliveryBadge, { backgroundColor: isDark ? '#064e3b' : '#dcfce7' }]}>
+                  <Text style={[styles.freeDeliveryText, { color: isDark ? '#34d399' : '#15803d' }]}>FREE</Text>
                 </View>
               </View>
 
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: theme.borderSubtle }]} />
 
               <View style={styles.summaryTotalRow}>
                 <View>
-                  <Text style={styles.grandTotalLabel}>Total Payable</Text>
-                  <Text style={styles.taxInclusiveText}>Pay with Cash on Delivery</Text>
+                  <Text style={[styles.grandTotalLabel, { color: theme.text }]}>Total Payable</Text>
+                  <Text style={[styles.taxInclusiveText, { color: theme.textSubtle }]}>Pay with Cash on Delivery</Text>
                 </View>
-                <Text style={styles.grandTotalValue}>{formatPrice(totalAmount)}</Text>
+                <Text style={[styles.grandTotalValue, { color: theme.primary }]}>{formatPrice(totalAmount)}</Text>
               </View>
             </View>
           </ScrollView>
@@ -442,24 +444,24 @@ export default function CartModal({
             {/* List of Cart Items */}
             <View style={styles.itemsList}>
               {cartEntries.map(({ product, unitPrice, quantity, subtotal }) => (
-                <View key={product.id} style={styles.cartItemRow}>
-                  <View style={styles.itemIconBox}>
+                <View key={product.id} style={[styles.cartItemRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <View style={[styles.itemIconBox, { backgroundColor: theme.primaryLight }]}>
                     <Text style={styles.itemIcon}>{product.placeholderIcon || '💧'}</Text>
                   </View>
 
                   <View style={styles.itemDetails}>
-                    <Text style={styles.itemName} numberOfLines={2}>
+                    <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={2}>
                       {product.name}
                     </Text>
                     <View style={styles.itemCategoryRow}>
-                      <Text style={styles.itemCategory}>{product.category}</Text>
+                      <Text style={[styles.itemCategory, { color: theme.textMuted }]}>{product.category}</Text>
                       {isApprovedDealer && (
                         <View style={styles.wholesaleTagBox}>
                           <Text style={styles.wholesaleTagText}>WHOLESALE</Text>
                         </View>
                       )}
                     </View>
-                    <Text style={styles.itemUnitPrice}>
+                    <Text style={[styles.itemUnitPrice, { color: theme.textMuted }]}>
                       {isApprovedDealer ? 'Wholesale Unit: ' : 'Unit: '}
                       {formatPrice(unitPrice)}
                       {isApprovedDealer && product.price > unitPrice && (
@@ -470,33 +472,33 @@ export default function CartModal({
                     </Text>
 
                     <View style={styles.itemSubtotalRow}>
-                      <Text style={styles.itemSubtotalLabel}>Subtotal:</Text>
-                      <Text style={styles.itemSubtotalValue}>
+                      <Text style={[styles.itemSubtotalLabel, { color: theme.primary }]}>Subtotal:</Text>
+                      <Text style={[styles.itemSubtotalValue, { color: theme.primary }]}>
                         {formatPrice(subtotal)}
                       </Text>
                     </View>
                   </View>
 
                   {/* Quantity Stepper */}
-                  <View style={styles.itemStepper}>
+                  <View style={[styles.itemStepper, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
                     <TouchableOpacity
-                      style={styles.stepperBtn}
+                      style={[styles.stepperBtn, { backgroundColor: theme.surfaceSubtle }]}
                       onPress={() => onDecrement(product.id)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.stepperBtnText}>−</Text>
+                      <Text style={[styles.stepperBtnText, { color: theme.text }]}>−</Text>
                     </TouchableOpacity>
 
                     <View style={styles.stepperValBox}>
-                      <Text style={styles.stepperValText}>{quantity}</Text>
+                      <Text style={[styles.stepperValText, { color: theme.text }]}>{quantity}</Text>
                     </View>
 
                     <TouchableOpacity
-                      style={styles.stepperBtn}
+                      style={[styles.stepperBtn, { backgroundColor: theme.surfaceSubtle }]}
                       onPress={() => onIncrement(product.id)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.stepperBtnText}>+</Text>
+                      <Text style={[styles.stepperBtnText, { color: theme.text }]}>+</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -504,14 +506,14 @@ export default function CartModal({
             </View>
 
             {/* Bill Summary Section */}
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Bill Summary</Text>
+            <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={[styles.summaryTitle, { color: theme.text }]}>Bill Summary</Text>
 
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>
+                <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>
                   Items Subtotal ({totalQuantity} {totalQuantity === 1 ? 'item' : 'items'})
                 </Text>
-                <Text style={styles.summaryValue}>{formatPrice(totalAmount)}</Text>
+                <Text style={[styles.summaryValue, { color: theme.text }]}>{formatPrice(totalAmount)}</Text>
               </View>
 
               {isApprovedDealer && wholesaleSavings > 0 && (
@@ -522,20 +524,20 @@ export default function CartModal({
               )}
 
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Delivery Charges</Text>
-                <View style={styles.freeDeliveryBadge}>
-                  <Text style={styles.freeDeliveryText}>FREE</Text>
+                <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>Delivery Charges</Text>
+                <View style={[styles.freeDeliveryBadge, { backgroundColor: isDark ? '#064e3b' : '#dcfce7' }]}>
+                  <Text style={[styles.freeDeliveryText, { color: isDark ? '#34d399' : '#15803d' }]}>FREE</Text>
                 </View>
               </View>
 
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: theme.borderSubtle }]} />
 
               <View style={styles.summaryTotalRow}>
                 <View>
-                  <Text style={styles.grandTotalLabel}>Total Payable</Text>
-                  <Text style={styles.taxInclusiveText}>Inclusive of all taxes</Text>
+                  <Text style={[styles.grandTotalLabel, { color: theme.text }]}>Total Payable</Text>
+                  <Text style={[styles.taxInclusiveText, { color: theme.textSubtle }]}>Inclusive of all taxes</Text>
                 </View>
-                <Text style={styles.grandTotalValue}>{formatPrice(totalAmount)}</Text>
+                <Text style={[styles.grandTotalValue, { color: theme.primary }]}>{formatPrice(totalAmount)}</Text>
               </View>
             </View>
           </ScrollView>
@@ -543,15 +545,15 @@ export default function CartModal({
 
         {/* Sticky Action Footer */}
         {cartEntries.length > 0 && (
-          <View style={styles.footerBar}>
+          <View style={[styles.footerBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
             <View style={styles.footerInfo}>
-              <Text style={styles.footerLabel}>Total Amount</Text>
-              <Text style={styles.footerPrice}>{formatPrice(totalAmount)}</Text>
+              <Text style={[styles.footerLabel, { color: theme.textMuted }]}>Total Amount</Text>
+              <Text style={[styles.footerPrice, { color: theme.text }]}>{formatPrice(totalAmount)}</Text>
             </View>
 
             {isCheckout ? (
               <TouchableOpacity
-                style={[styles.checkoutButton, isSubmitting && styles.checkoutButtonDisabled]}
+                style={[styles.checkoutButton, { backgroundColor: theme.primaryDark }, isSubmitting && styles.checkoutButtonDisabled]}
                 onPress={handlePlaceOrder}
                 activeOpacity={0.8}
                 disabled={isSubmitting}
@@ -570,7 +572,7 @@ export default function CartModal({
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={styles.checkoutButton}
+                style={[styles.checkoutButton, { backgroundColor: theme.primaryDark }]}
                 onPress={handleProceedToCheckout}
                 activeOpacity={0.8}
               >

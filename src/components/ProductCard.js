@@ -1,6 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Animated,
+} from 'react-native';
 import { CATEGORY_META, formatPrice, getProductPrice } from '../data/products';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function ProductCard({
   product,
@@ -8,10 +16,51 @@ export default function ProductCard({
   onAddToCart,
   onIncrement,
   onDecrement,
+  onImagePress,
   isApprovedDealer = false,
 }) {
+  const { theme, isDark } = useTheme();
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+
+  // Performant animations: card entrance fade/slide, button press scale feedback
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(8)).current;
+  const buttonScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handlePressAddToCart = () => {
+    // Subtle, restrained bounce feedback
+    Animated.sequence([
+      Animated.timing(buttonScale, {
+        toValue: 0.94,
+        duration: 80,
+        useNativeDriver: true,
+      }),
+      Animated.spring(buttonScale, {
+        toValue: 1,
+        friction: 4,
+        tension: 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    onAddToCart(product.id);
+  };
 
   const categoryMeta = CATEGORY_META[product.category] || CATEGORY_META.All;
   const discountPercent =
@@ -23,9 +72,24 @@ export default function ProductCard({
   const itemSubtotal = unitPrice * quantity;
 
   return (
-    <View style={styles.card}>
-      {/* Product Image / Visual Area */}
-      <View style={styles.imageContainer}>
+    <Animated.View
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.card,
+          borderColor: theme.cardBorder,
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      {/* Product Image / Visual Area (Tappable for full-screen Lightbox) */}
+      <TouchableOpacity
+        style={[styles.imageContainer, { backgroundColor: isDark ? '#0b1120' : '#f8fafc' }]}
+        onPress={() => onImagePress && onImagePress(product)}
+        activeOpacity={0.88}
+        accessibilityLabel={`View full-size image of ${product.name}`}
+      >
         {/* Category visual placeholder (always rendered as background/fallback) */}
         {(!imgLoaded || imgError) && (
           <View
@@ -65,41 +129,86 @@ export default function ProductCard({
             <Text style={styles.discountText}>{discountPercent}% OFF</Text>
           </View>
         ) : null}
-      </View>
+
+        {/* Inspect / Zoom Hint Pill */}
+        <View style={styles.zoomInspectPill}>
+          <Text style={styles.zoomInspectText}>🔍 View</Text>
+        </View>
+      </TouchableOpacity>
 
       {/* Product Information Body */}
       <View style={styles.content}>
         {/* Category & Rating Row */}
         <View style={styles.metaRow}>
-          <View style={[styles.categoryPill, { borderColor: `${categoryMeta.color}40` }]}>
+          <View
+            style={[
+              styles.categoryPill,
+              {
+                borderColor: `${categoryMeta.color}40`,
+                backgroundColor: isDark ? '#1a243b' : '#f8fafc',
+              },
+            ]}
+          >
             <Text style={[styles.categoryText, { color: categoryMeta.color }]}>
               {product.category}
             </Text>
           </View>
 
           {product.rating ? (
-            <View style={styles.ratingBadge}>
+            <View
+              style={[
+                styles.ratingBadge,
+                { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7' },
+              ]}
+            >
               <Text style={styles.starText}>★</Text>
-              <Text style={styles.ratingText}>{product.rating}</Text>
-              <Text style={styles.reviewsText}>({product.reviewsCount})</Text>
+              <Text
+                style={[
+                  styles.ratingText,
+                  { color: isDark ? '#fbbf24' : '#92400e' },
+                ]}
+              >
+                {product.rating}
+              </Text>
+              <Text
+                style={[
+                  styles.reviewsText,
+                  { color: isDark ? '#f59e0b' : '#b45309' },
+                ]}
+              >
+                ({product.reviewsCount})
+              </Text>
             </View>
           ) : null}
         </View>
 
         {/* Title */}
-        <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+        <Text
+          style={[styles.title, { color: theme.text }]}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
           {product.name}
         </Text>
 
         {/* Short Description */}
-        <Text style={styles.description} numberOfLines={2} ellipsizeMode="tail">
+        <Text
+          style={[styles.description, { color: theme.textMuted }]}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
           {product.description}
         </Text>
 
         {/* Specifications highlight */}
         {product.specifications ? (
-          <View style={styles.specsContainer}>
-            <Text style={styles.specsText} numberOfLines={1}>
+          <View
+            style={[
+              styles.specsContainer,
+              { backgroundColor: theme.surfaceSubtle },
+            ]}
+          >
+            <Text style={[styles.specsText, { color: theme.textMuted }]} numberOfLines={1}>
               {product.specifications}
             </Text>
           </View>
@@ -113,18 +222,20 @@ export default function ProductCard({
                 <View style={styles.wholesalePillRow}>
                   <Text style={styles.wholesalePillTag}>WHOLESALE</Text>
                 </View>
-                <Text style={styles.wholesalePriceText}>
+                <Text style={[styles.wholesalePriceText, { color: theme.primary }]}>
                   {formatPrice(unitPrice)}
                 </Text>
-                <Text style={styles.originalPrice}>
+                <Text style={[styles.originalPrice, { color: theme.textSubtle }]}>
                   Retail: {formatPrice(product.price)}
                 </Text>
               </>
             ) : (
               <>
-                <Text style={styles.price}>{formatPrice(product.price)}</Text>
+                <Text style={[styles.price, { color: theme.primary }]}>
+                  {formatPrice(product.price)}
+                </Text>
                 {product.originalPrice ? (
-                  <Text style={styles.originalPrice}>
+                  <Text style={[styles.originalPrice, { color: theme.textSubtle }]}>
                     {formatPrice(product.originalPrice)}
                   </Text>
                 ) : null}
@@ -132,20 +243,30 @@ export default function ProductCard({
             )}
           </View>
 
-          {/* Cart Quantity Controls */}
+          {/* Cart Quantity Controls with Restrained Scale Animation */}
           {quantity === 0 ? (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => onAddToCart(product.id)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.addButtonPlus}>+</Text>
-              <Text style={styles.addButtonText}>Add to Cart</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.quantityStepper}>
+            <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
               <TouchableOpacity
-                style={styles.stepperButton}
+                style={[styles.addButton, { backgroundColor: theme.primaryDark }]}
+                onPress={handlePressAddToCart}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.addButtonPlus}>+</Text>
+                <Text style={styles.addButtonText}>Add to Cart</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          ) : (
+            <View
+              style={[
+                styles.quantityStepper,
+                {
+                  backgroundColor: isDark ? '#064e3b' : '#f0fdf4',
+                  borderColor: isDark ? '#059669' : '#16a34a',
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={[styles.stepperButton, { backgroundColor: isDark ? '#059669' : '#16a34a' }]}
                 onPress={() => onDecrement(product.id)}
                 activeOpacity={0.7}
               >
@@ -153,11 +274,18 @@ export default function ProductCard({
               </TouchableOpacity>
 
               <View style={styles.stepperCountBox}>
-                <Text style={styles.stepperCountText}>{quantity}</Text>
+                <Text
+                  style={[
+                    styles.stepperCountText,
+                    { color: isDark ? '#34d399' : '#166534' },
+                  ]}
+                >
+                  {quantity}
+                </Text>
               </View>
 
               <TouchableOpacity
-                style={styles.stepperButton}
+                style={[styles.stepperButton, { backgroundColor: isDark ? '#059669' : '#16a34a' }]}
                 onPress={() => onIncrement(product.id)}
                 activeOpacity={0.7}
               >
@@ -169,18 +297,48 @@ export default function ProductCard({
 
         {/* Item Subtotal Banner when quantity > 0 */}
         {quantity > 0 && (
-          <View style={[styles.subtotalBanner, isApprovedDealer && styles.subtotalBannerDealer]}>
-            <Text style={[styles.subtotalLabel, isApprovedDealer && styles.subtotalLabelDealer]}>
+          <View
+            style={[
+              styles.subtotalBanner,
+              { borderTopColor: theme.borderSubtle },
+              isApprovedDealer && [
+                styles.subtotalBannerDealer,
+                {
+                  backgroundColor: isDark ? '#082f49' : '#f8fafc',
+                  borderTopColor: isDark ? '#0284c7' : '#e0f2fe',
+                },
+              ],
+            ]}
+          >
+            <Text
+              style={[
+                styles.subtotalLabel,
+                { color: isDark ? '#34d399' : '#166534' },
+                isApprovedDealer && [
+                  styles.subtotalLabelDealer,
+                  { color: isDark ? '#38bdf8' : '#0369a1' },
+                ],
+              ]}
+            >
               In Cart: {quantity} {quantity === 1 ? 'unit' : 'units'}
             </Text>
-            <Text style={[styles.subtotalValue, isApprovedDealer && styles.subtotalValueDealer]}>
+            <Text
+              style={[
+                styles.subtotalValue,
+                { color: theme.text },
+                isApprovedDealer && [
+                  styles.subtotalValueDealer,
+                  { color: isDark ? '#38bdf8' : '#0284c7' },
+                ],
+              ]}
+            >
               {isApprovedDealer ? 'Wholesale Subtotal: ' : 'Item Subtotal: '}
               {formatPrice(itemSubtotal)}
             </Text>
           </View>
         )}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -257,6 +415,20 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 11,
     fontWeight: '700',
+  },
+  zoomInspectPill: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  zoomInspectText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '600',
   },
   content: {
     padding: 14,

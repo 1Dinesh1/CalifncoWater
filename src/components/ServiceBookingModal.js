@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useTheme } from '../theme/ThemeContext';
 
 // Available Service Categories
 const SERVICE_TYPES = [
@@ -75,6 +76,7 @@ export default function ServiceBookingModal({
   currentUser = null,
   onOpenAuth,
 }) {
+  const { theme, isDark } = useTheme();
   const upcomingDates = useMemo(() => getUpcomingDates(5), []);
 
   // Form State
@@ -214,37 +216,37 @@ export default function ServiceBookingModal({
       onRequestClose={handleModalClose}
     >
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: theme.background }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Modal Top Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
           <View style={styles.headerTitleRow}>
             <Text style={styles.headerIcon}>🛠️</Text>
-            <Text style={styles.headerTitle}>Book a Service</Text>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>Book a Service</Text>
           </View>
           <TouchableOpacity
             onPress={handleModalClose}
-            style={styles.closeButton}
+            style={[styles.closeButton, { backgroundColor: theme.surfaceSubtle }]}
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
-            <Text style={styles.closeButtonText}>✕</Text>
+            <Text style={[styles.closeButtonText, { color: theme.textMuted }]}>✕</Text>
           </TouchableOpacity>
         </View>
 
         {/* Guest View: Require Authentication */}
         {!currentUser ? (
           <View style={styles.guestCenterContainer}>
-            <View style={styles.guestIconCircle}>
+            <View style={[styles.guestIconCircle, { backgroundColor: theme.primaryLight }]}>
               <Text style={styles.guestIcon}>🔧</Text>
             </View>
-            <Text style={styles.guestTitle}>Sign In to Book a Service</Text>
-            <Text style={styles.guestSubtitle}>
+            <Text style={[styles.guestTitle, { color: theme.text }]}>Sign In to Book a Service</Text>
+            <Text style={[styles.guestSubtitle, { color: theme.textMuted }]}>
               Please sign in or create a Califnco Water customer account to schedule installation, repair, or routine maintenance for your water purifier.
             </Text>
             <TouchableOpacity
-              style={styles.guestSignInButton}
+              style={[styles.guestSignInButton, { backgroundColor: theme.primaryDark }]}
               onPress={() => {
                 onClose();
                 if (onOpenAuth) onOpenAuth();
@@ -263,10 +265,10 @@ export default function ServiceBookingModal({
             showsVerticalScrollIndicator={false}
           >
             {/* Informational Intro Banner */}
-            <View style={styles.introBanner}>
+            <View style={[styles.introBanner, { backgroundColor: isDark ? '#082f49' : '#e0f2fe' }]}>
               <Text style={styles.introBadge}>CERTIFIED TECHNICIANS</Text>
-              <Text style={styles.introTitle}>Expert Water Purifier Care</Text>
-              <Text style={styles.introSubtitle}>
+              <Text style={[styles.introTitle, { color: isDark ? '#38bdf8' : '#0369a1' }]}>Expert Water Purifier Care</Text>
+              <Text style={[styles.introSubtitle, { color: isDark ? '#e0f2fe' : '#075985' }]}>
                 Genuine spare parts, transparent pricing, and doorstep service across all major models and brands.
               </Text>
             </View>
@@ -281,7 +283,7 @@ export default function ServiceBookingModal({
 
             {/* Field 1: Service Type */}
             <View style={styles.sectionGroup}>
-              <Text style={styles.fieldLabel}>
+              <Text style={[styles.fieldLabel, { color: theme.text }]}>
                 SERVICE TYPE <Text style={styles.requiredAsterisk}>*</Text>
               </Text>
               <View style={styles.serviceTypesList}>
@@ -292,7 +294,8 @@ export default function ServiceBookingModal({
                       key={type.id}
                       style={[
                         styles.serviceTypeCard,
-                        isSelected && styles.serviceTypeCardSelected,
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        isSelected && [styles.serviceTypeCardSelected, { borderColor: theme.primary, backgroundColor: isDark ? '#082f49' : '#f0f9ff' }],
                       ]}
                       onPress={() => setServiceType(type.id)}
                       activeOpacity={0.7}
@@ -303,7 +306,8 @@ export default function ServiceBookingModal({
                         <Text
                           style={[
                             styles.serviceTypeTitle,
-                            isSelected && styles.serviceTypeTitleSelected,
+                            { color: theme.text },
+                            isSelected && [styles.serviceTypeTitleSelected, { color: theme.primary }],
                           ]}
                         >
                           {type.title}
@@ -311,16 +315,18 @@ export default function ServiceBookingModal({
                         <View
                           style={[
                             styles.radioCircle,
-                            isSelected && styles.radioCircleSelected,
+                            { borderColor: theme.border },
+                            isSelected && [styles.radioCircleSelected, { borderColor: theme.primary }],
                           ]}
                         >
-                          {isSelected && <View style={styles.radioDot} />}
+                          {isSelected && <View style={[styles.radioDot, { backgroundColor: theme.primary }]} />}
                         </View>
                       </View>
                       <Text
                         style={[
                           styles.serviceTypeDescription,
-                          isSelected && styles.serviceTypeDescriptionSelected,
+                          { color: theme.textMuted },
+                          isSelected && { color: isDark ? '#cbd5e1' : '#0369a1' },
                         ]}
                       >
                         {type.description}
@@ -333,7 +339,7 @@ export default function ServiceBookingModal({
 
             {/* Field 2: Preferred Service Date */}
             <View style={styles.sectionGroup}>
-              <Text style={styles.fieldLabel}>
+              <Text style={[styles.fieldLabel, { color: theme.text }]}>
                 PREFERRED DATE <Text style={styles.requiredAsterisk}>*</Text>
               </Text>
               <ScrollView
@@ -349,7 +355,8 @@ export default function ServiceBookingModal({
                       key={d.value}
                       style={[
                         styles.datePill,
-                        isSelected && styles.datePillSelected,
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        isSelected && [styles.datePillSelected, { backgroundColor: theme.primaryDark, borderColor: theme.primaryDark }],
                       ]}
                       onPress={() => setPreferredDate(d.value)}
                       activeOpacity={0.7}
@@ -358,7 +365,8 @@ export default function ServiceBookingModal({
                       <Text
                         style={[
                           styles.datePillText,
-                          isSelected && styles.datePillTextSelected,
+                          { color: theme.textMuted },
+                          isSelected && [styles.datePillTextSelected, { color: '#ffffff' }],
                         ]}
                       >
                         {d.label}
@@ -368,9 +376,9 @@ export default function ServiceBookingModal({
                 })}
               </ScrollView>
               <TextInput
-                style={styles.customDateInput}
+                style={[styles.customDateInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
                 placeholder="Or specify custom date (e.g. 28 Oct 2026)"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.textSubtle}
                 value={preferredDate}
                 onChangeText={setPreferredDate}
                 editable={!isSubmitting}
@@ -379,7 +387,7 @@ export default function ServiceBookingModal({
 
             {/* Field 3: Preferred Time Slot */}
             <View style={styles.sectionGroup}>
-              <Text style={styles.fieldLabel}>
+              <Text style={[styles.fieldLabel, { color: theme.text }]}>
                 PREFERRED TIME SLOT <Text style={styles.requiredAsterisk}>*</Text>
               </Text>
               <View style={styles.slotsRow}>
@@ -390,7 +398,8 @@ export default function ServiceBookingModal({
                       key={slot.id}
                       style={[
                         styles.slotCard,
-                        isSelected && styles.slotCardSelected,
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        isSelected && [styles.slotCardSelected, { borderColor: theme.primary, backgroundColor: isDark ? '#082f49' : '#f0f9ff' }],
                       ]}
                       onPress={() => setPreferredSlot(slot.id)}
                       activeOpacity={0.7}
@@ -400,7 +409,8 @@ export default function ServiceBookingModal({
                       <Text
                         style={[
                           styles.slotLabel,
-                          isSelected && styles.slotLabelSelected,
+                          { color: theme.text },
+                          isSelected && [styles.slotLabelSelected, { color: theme.primary }],
                         ]}
                       >
                         {slot.label}
@@ -408,7 +418,8 @@ export default function ServiceBookingModal({
                       <Text
                         style={[
                           styles.slotTime,
-                          isSelected && styles.slotTimeSelected,
+                          { color: theme.textMuted },
+                          isSelected && [styles.slotTimeSelected, { color: isDark ? '#93c5fd' : '#0369a1' }],
                         ]}
                       >
                         {slot.time}
@@ -421,13 +432,13 @@ export default function ServiceBookingModal({
 
             {/* Field 4: Customer Contact Info */}
             <View style={styles.sectionGroup}>
-              <Text style={styles.fieldLabel}>
+              <Text style={[styles.fieldLabel, { color: theme.text }]}>
                 CONTACT PHONE <Text style={styles.requiredAsterisk}>*</Text>
               </Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
                 placeholder="10-digit mobile number (e.g. 9876543210)"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.textSubtle}
                 keyboardType="phone-pad"
                 maxLength={15}
                 value={customerPhone}
@@ -435,13 +446,13 @@ export default function ServiceBookingModal({
                 editable={!isSubmitting}
               />
 
-              <Text style={[styles.fieldLabel, { marginTop: 12 }]}>
+              <Text style={[styles.fieldLabel, { marginTop: 12, color: theme.text }]}>
                 YOUR NAME <Text style={styles.optionalTag}>(Optional)</Text>
               </Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
                 placeholder="Enter full name"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.textSubtle}
                 value={customerName}
                 onChangeText={setCustomerName}
                 editable={!isSubmitting}
@@ -450,13 +461,13 @@ export default function ServiceBookingModal({
 
             {/* Field 5: Service Address */}
             <View style={styles.sectionGroup}>
-              <Text style={styles.fieldLabel}>
+              <Text style={[styles.fieldLabel, { color: theme.text }]}>
                 SERVICE ADDRESS <Text style={styles.requiredAsterisk}>*</Text>
               </Text>
               <TextInput
-                style={[styles.input, styles.multilineInput]}
+                style={[styles.input, styles.multilineInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
                 placeholder="Flat / House No., Building, Street, Landmark, City, PIN code"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.textSubtle}
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
@@ -468,13 +479,13 @@ export default function ServiceBookingModal({
 
             {/* Field 6: Notes / Issue Details */}
             <View style={styles.sectionGroup}>
-              <Text style={styles.fieldLabel}>
+              <Text style={[styles.fieldLabel, { color: theme.text }]}>
                 PURIFIER DETAILS & NOTES <Text style={styles.optionalTag}>(Optional)</Text>
               </Text>
               <TextInput
-                style={[styles.input, styles.multilineInputNotes]}
+                style={[styles.input, styles.multilineInputNotes, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
                 placeholder="e.g. Kent / Aquaguard RO model, water leaking from pipe, TDS reading high..."
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.textSubtle}
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
@@ -485,9 +496,9 @@ export default function ServiceBookingModal({
             </View>
 
             {/* Policy & Technicians Note */}
-            <View style={styles.policyNotice}>
+            <View style={[styles.policyNotice, { backgroundColor: isDark ? '#0b1120' : '#f8fafc', borderColor: theme.border }]}>
               <Text style={styles.policyNoticeIcon}>ℹ️</Text>
-              <Text style={styles.policyNoticeText}>
+              <Text style={[styles.policyNoticeText, { color: theme.textMuted }]}>
                 No advance payment required. Our technician will assess your purifier, explain required parts or services, and provide an official Califnco Water estimate on site.
               </Text>
             </View>
@@ -496,6 +507,7 @@ export default function ServiceBookingModal({
             <TouchableOpacity
               style={[
                 styles.submitButton,
+                { backgroundColor: theme.primaryDark },
                 isSubmitting && styles.submitButtonDisabled,
               ]}
               onPress={handleSubmitBooking}

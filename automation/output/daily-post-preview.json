@@ -1,0 +1,70 @@
+{
+  "account": "@califncowater",
+  "mode": "DRY_RUN",
+  "date": "2026-10-25",
+  "productIndex": 9,
+  "dayOfYear": 297,
+  "product": {
+    "id": "flt-02",
+    "name": "Califnco Post-Carbon & Mineral Booster",
+    "category": "Filters",
+    "price": 899,
+    "originalPrice": 1199,
+    "rating": 4.6,
+    "reviewsCount": 153,
+    "badge": "Taste Boost"
+  },
+  "caption": {
+    "text": "✨ Califnco Product Spotlight: Califnco Post-Carbon & Mineral Booster\nCertified purity engineered for healthy living.\n\n⭐ Rated 4.6/5 (153 reviews).\n\n🔍 Why Choose This System?\nRestores essential magnesium and calcium ions lost during RO filtration for sweet taste.\n\n⚙️ Technical Highlights:\n  ✓ Remineralizing Calcite\n  ✓ Quick-Connect 1/4\"\n  ✓ Food Safe\n\n💰 Price: ₹899 (MRP: ₹1,199 • Save ₹300)\n🏢 Authorized Wholesale Trade rates available for approved dealers.\n\n📲 Order easily via the Califnco Water mobile app.\n🚚 Cash on Delivery (COD) & technician doorstep installation available.\n🛠️ Need service or filter maintenance? Book directly in-app!\n🔗 Tap the link in bio or visit @califncowater to learn more.",
+    "provider": "local",
+    "aiEnhanced": false,
+    "hashtags": [
+      "#CalifncoWater",
+      "#Califnco",
+      "#PureWater",
+      "#HealthyLiving",
+      "#HydrationMatters",
+      "#SafeDrinkingWater",
+      "#WaterFilter",
+      "#ROFilter",
+      "#FilterReplacement",
+      "#CleanWaterSolutions",
+      "#WaterPurifierService",
+      "#TasteBoost"
+    ],
+    "hashtagCount": 12,
+    "characterCount": 901
+  },
+  "image": {
+    "aiImageGenerated": false,
+    "provider": "branded-graphic",
+    "imageSource": "branded_promotional_graphic",
+    "catalogueStockUrl": "https://i.ibb.co/99nt0c71/Califnco-Mineral-Booster-Filter-Ad.png",
+    "localImageFilename": "pur-10.png",
+    "localImagePath": "D:\\CalifncoProject\\CalifncoWater\\automation\\output\\images\\pur-10.png",
+    "localImageExists": true,
+    "note": "Using the separate branded Mineral Booster graphic. Review the graphic and all claims before publishing.",
+    "aiPrompt": "Professional studio product photography of Califnco Post-Carbon & Mineral Booster. Clean, modern aesthetic with pure water droplets and a sparkling glass of clean drinking water. Set in a contemporary, minimalist Indian home kitchen with soft cinematic natural lighting. Category: Filters. Features: Remineralizing Calcite • Quick-Connect 1/4\" • Food Safe. High resolution, crisp details, commercial advertising style, 1:1 square Instagram aspect ratio. No blur, no distorted text, professional brand visual."
+  },
+  "imagePreparation": {
+    "aiImageGenerated": false,
+    "provider": "none",
+    "imageSource": "catalogue_stock",
+    "localImagePath": null,
+    "note": "Catalogue stock photo from Unsplash was used for reference; it was NOT AI-generated.",
+    "reason": "No AI image provider configured (optional step)."
+  },
+  "publisher": {
+    "dryRun": true,
+    "published": false,
+    "containerId": "dry_run_container_simulated_id",
+    "mediaId": "dry_run_media_simulated_id",
+    "format": "png",
+    "message": "Dry-run: Full publishing sequence validated with zero network calls."
+  },
+  "fullPostText": "✨ Califnco Product Spotlight: Califnco Post-Carbon & Mineral Booster\nCertified purity engineered for healthy living.\n\n⭐ Rated 4.6/5 (153 reviews).\n\n🔍 Why Choose This System?\nRestores essential magnesium and calcium ions lost during RO filtration for sweet taste.\n\n⚙️ Technical Highlights:\n  ✓ Remineralizing Calcite\n  ✓ Quick-Connect 1/4\"\n  ✓ Food Safe\n\n💰 Price: ₹899 (MRP: ₹1,199 • Save ₹300)\n🏢 Authorized Wholesale Trade rates available for approved dealers.\n\n📲 Order easily via the Califnco Water mobile app.\n🚚 Cash on Delivery (COD) & technician doorstep installation available.\n🛠️ Need service or filter maintenance? Book directly in-app!\n🔗 Tap the link in bio or visit @califncowater to learn more.\n\n.\n.\n#CalifncoWater #Califnco #PureWater #HealthyLiving #HydrationMatters #SafeDrinkingWater #WaterFilter #ROFilter #FilterReplacement #CleanWaterSolutions #WaterPurifierService #TasteBoost",
+  "characterCount": 901,
+  "savedFiles": null,
+  "published": false,
+  "status": "dry_run_success"
+}

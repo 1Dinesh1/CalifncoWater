@@ -16,13 +16,17 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
+import { useTheme } from '../theme/ThemeContext';
+import { recordReferralAttribution, isValidReferralCode } from '../utils/referral';
 
 export default function AuthModal({ visible, onClose }) {
+  const { theme, isDark } = useTheme();
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,6 +35,7 @@ export default function AuthModal({ visible, onClose }) {
     setEmail('');
     setPassword('');
     setConfirmPassword('');
+    setReferralCode('');
     setErrorMessage('');
     setLoading(false);
   };
@@ -108,6 +113,15 @@ export default function AuthModal({ visible, onClose }) {
         setErrorMessage('Passwords do not match. Please re-enter.');
         return;
       }
+
+      // Feature D: Validate referral code format if entered
+      if (referralCode.trim()) {
+        const cleanRef = referralCode.trim().toUpperCase();
+        if (!isValidReferralCode(cleanRef)) {
+          setErrorMessage('Invalid referral code format. Valid codes start with CALIF- followed by 4-10 characters.');
+          return;
+        }
+      }
     }
 
     setLoading(true);
@@ -118,12 +132,24 @@ export default function AuthModal({ visible, onClose }) {
         resetForm();
         onClose();
       } else {
-        await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+        const userCred = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+        const newUserId = userCred.user.uid;
+
+        // Feature D: Safely attribute referral without failing signup
+        let referralNote = '';
+        if (referralCode.trim()) {
+          const cleanRef = referralCode.trim().toUpperCase();
+          const attributionRes = await recordReferralAttribution(db, newUserId, trimmedEmail, cleanRef);
+          if (attributionRes.recorded) {
+            referralNote = `\n\nReferral code ${cleanRef} successfully applied!`;
+          }
+        }
+
         resetForm();
         onClose();
         Alert.alert(
           'Account Created',
-          `Welcome to Califnco Water! You are now signed in as ${trimmedEmail}.`
+          `Welcome to Califnco Water! You are now signed in as ${trimmedEmail}.${referralNote}`
         );
       }
     } catch (err) {
@@ -161,7 +187,7 @@ export default function AuthModal({ visible, onClose }) {
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
-        style={styles.keyboardContainer}
+        style={[styles.keyboardContainer, { backgroundColor: theme.background }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
@@ -172,34 +198,37 @@ export default function AuthModal({ visible, onClose }) {
           <View style={styles.topBar}>
             <View style={styles.brandRow}>
               <Text style={styles.brandIcon}>💧</Text>
-              <Text style={styles.brandTitle}>Califnco Water</Text>
+              <Text style={[styles.brandTitle, { color: theme.text }]}>Califnco Water</Text>
             </View>
             <TouchableOpacity
               onPress={handleClose}
-              style={styles.closeButton}
+              style={[styles.closeButton, { backgroundColor: theme.surfaceSubtle }]}
               activeOpacity={0.7}
               disabled={loading}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={[styles.closeButtonText, { color: theme.textMuted }]}>✕</Text>
             </TouchableOpacity>
           </View>
 
           {/* Form Card */}
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {/* Title & Subtitle */}
-            <Text style={styles.formTitle}>
+            <Text style={[styles.formTitle, { color: theme.text }]}>
               {mode === 'login' ? 'Customer Sign In' : 'Create Customer Account'}
             </Text>
-            <Text style={styles.formSubtitle}>
+            <Text style={[styles.formSubtitle, { color: theme.textMuted }]}>
               {mode === 'login'
                 ? 'Sign in to access your Califnco Water customer account.'
-                : 'Join Califnco Water for quick ordering and doorstep delivery.'}
+                : 'Join Califnco Water for quick ordering, service, and referral benefits.'}
             </Text>
 
             {/* Mode Switcher Tabs */}
-            <View style={styles.tabContainer}>
+            <View style={[styles.tabContainer, { backgroundColor: theme.surfaceSubtle }]}>
               <TouchableOpacity
-                style={[styles.tab, mode === 'login' && styles.tabActive]}
+                style={[
+                  styles.tab,
+                  mode === 'login' && [styles.tabActive, { backgroundColor: isDark ? theme.surfaceElevated : '#ffffff' }],
+                ]}
                 onPress={() => handleSwitchMode('login')}
                 activeOpacity={0.7}
                 disabled={loading}
@@ -207,7 +236,8 @@ export default function AuthModal({ visible, onClose }) {
                 <Text
                   style={[
                     styles.tabText,
-                    mode === 'login' && styles.tabTextActive,
+                    { color: theme.textMuted },
+                    mode === 'login' && [styles.tabTextActive, { color: theme.primary }],
                   ]}
                 >
                   Sign In
@@ -215,7 +245,10 @@ export default function AuthModal({ visible, onClose }) {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.tab, mode === 'register' && styles.tabActive]}
+                style={[
+                  styles.tab,
+                  mode === 'register' && [styles.tabActive, { backgroundColor: isDark ? theme.surfaceElevated : '#ffffff' }],
+                ]}
                 onPress={() => handleSwitchMode('register')}
                 activeOpacity={0.7}
                 disabled={loading}
@@ -223,7 +256,8 @@ export default function AuthModal({ visible, onClose }) {
                 <Text
                   style={[
                     styles.tabText,
-                    mode === 'register' && styles.tabTextActive,
+                    { color: theme.textMuted },
+                    mode === 'register' && [styles.tabTextActive, { color: theme.primary }],
                   ]}
                 >
                   Register
@@ -233,21 +267,21 @@ export default function AuthModal({ visible, onClose }) {
 
             {/* Error Message Alert */}
             {errorMessage ? (
-              <View style={styles.errorBanner}>
+              <View style={[styles.errorBanner, { backgroundColor: isDark ? '#450a0a' : '#fef2f2' }]}>
                 <Text style={styles.errorIcon}>⚠️</Text>
-                <Text style={styles.errorText}>{errorMessage}</Text>
+                <Text style={[styles.errorText, { color: isDark ? '#fca5a5' : '#b91c1c' }]}>{errorMessage}</Text>
               </View>
             ) : null}
 
             {/* Input Fields */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email Address</Text>
-              <View style={styles.inputContainer}>
+              <Text style={[styles.inputLabel, { color: theme.text }]}>Email Address</Text>
+              <View style={[styles.inputContainer, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder }]}>
                 <Text style={styles.inputIcon}>✉️</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, { color: theme.text }]}
                   placeholder="customer@example.com"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.textSubtle}
                   value={email}
                   onChangeText={(text) => {
                     setEmail(text);
@@ -262,13 +296,13 @@ export default function AuthModal({ visible, onClose }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <View style={styles.inputContainer}>
+              <Text style={[styles.inputLabel, { color: theme.text }]}>Password</Text>
+              <View style={[styles.inputContainer, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder }]}>
                 <Text style={styles.inputIcon}>🔒</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, { color: theme.text }]}
                   placeholder="Minimum 6 characters"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.textSubtle}
                   value={password}
                   onChangeText={(text) => {
                     setPassword(text);
@@ -284,7 +318,7 @@ export default function AuthModal({ visible, onClose }) {
                   style={styles.showPasswordBtn}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.showPasswordText}>
+                  <Text style={[styles.showPasswordText, { color: theme.primary }]}>
                     {showPassword ? 'Hide' : 'Show'}
                   </Text>
                 </TouchableOpacity>
@@ -292,31 +326,60 @@ export default function AuthModal({ visible, onClose }) {
             </View>
 
             {mode === 'register' && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Confirm Password</Text>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputIcon}>🔐</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Re-enter your password"
-                    placeholderTextColor="#94a3b8"
-                    value={confirmPassword}
-                    onChangeText={(text) => {
-                      setConfirmPassword(text);
-                      if (errorMessage) setErrorMessage('');
-                    }}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!loading}
-                  />
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: theme.text }]}>Confirm Password</Text>
+                  <View style={[styles.inputContainer, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder }]}>
+                    <Text style={styles.inputIcon}>🔐</Text>
+                    <TextInput
+                      style={[styles.textInput, { color: theme.text }]}
+                      placeholder="Re-enter your password"
+                      placeholderTextColor={theme.textSubtle}
+                      value={confirmPassword}
+                      onChangeText={(text) => {
+                        setConfirmPassword(text);
+                        if (errorMessage) setErrorMessage('');
+                      }}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!loading}
+                    />
+                  </View>
                 </View>
-              </View>
+
+                {/* Feature D: Referral Invitation Code Field */}
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: theme.text }]}>
+                    Referral Invitation Code <Text style={{ fontSize: 11, fontWeight: '400', color: theme.textSubtle }}>(Optional)</Text>
+                  </Text>
+                  <View style={[styles.inputContainer, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder }]}>
+                    <Text style={styles.inputIcon}>🎁</Text>
+                    <TextInput
+                      style={[styles.textInput, { color: theme.text }]}
+                      placeholder="e.g. CALIF-AB12CD"
+                      placeholderTextColor={theme.textSubtle}
+                      value={referralCode}
+                      onChangeText={(text) => {
+                        setReferralCode(text.toUpperCase());
+                        if (errorMessage) setErrorMessage('');
+                      }}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      editable={!loading}
+                    />
+                  </View>
+                </View>
+              </>
             )}
 
             {/* Submit Button */}
             <TouchableOpacity
-              style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+              style={[
+                styles.submitButton,
+                { backgroundColor: theme.primaryDark },
+                loading && styles.submitButtonDisabled,
+              ]}
               onPress={handleSubmit}
               disabled={loading}
               activeOpacity={0.8}
@@ -337,7 +400,7 @@ export default function AuthModal({ visible, onClose }) {
 
             {/* Switch Mode Prompt */}
             <View style={styles.switchPromptContainer}>
-              <Text style={styles.switchPromptText}>
+              <Text style={[styles.switchPromptText, { color: theme.textMuted }]}>
                 {mode === 'login'
                   ? "Don't have an account yet?"
                   : 'Already have an account?'}
@@ -347,7 +410,7 @@ export default function AuthModal({ visible, onClose }) {
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.switchActionText}>
+                <Text style={[styles.switchActionText, { color: theme.primary }]}>
                   {mode === 'login' ? ' Register here' : ' Sign In here'}
                 </Text>
               </TouchableOpacity>
@@ -526,7 +589,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   submitButtonDisabled: {
-    backgroundColor: '#93c5fd',
+    opacity: 0.6,
   },
   loadingRow: {
     flexDirection: 'row',

@@ -1,11 +1,14 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function BottomNavBar({
   activeTab = 'home',
   onTabPress,
   currentUser = null,
 }) {
+  const { theme } = useTheme();
+
   const tabs = [
     { key: 'home', label: 'Home', icon: '🏠' },
     { key: 'orders', label: 'My Orders', icon: '📦' },
@@ -18,7 +21,7 @@ export default function BottomNavBar({
   ];
 
   return (
-    <View style={styles.navContainer}>
+    <View style={[styles.navContainer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
       <View style={styles.navInner}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
@@ -43,14 +46,15 @@ export default function BottomNavBar({
                   {tab.icon}
                 </Text>
                 {tab.key === 'account' && currentUser && (
-                  <View style={styles.userActiveDot} />
+                  <View style={[styles.userActiveDot, { borderColor: theme.surface }]} />
                 )}
               </View>
 
               <Text
                 style={[
                   styles.tabLabel,
-                  isActive && styles.tabLabelActive,
+                  { color: theme.textMuted },
+                  isActive && [styles.tabLabelActive, { color: theme.primary }],
                 ]}
                 numberOfLines={1}
               >

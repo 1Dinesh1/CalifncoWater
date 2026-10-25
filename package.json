@@ -1,3 +1,4 @@
+
 {
   "name": "califncowater",
   "version": "1.0.0",
@@ -13,7 +14,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "instagram:preview": "node ./automation/postDailyInstagram.js --dry-run"
   },
   "private": true
 }

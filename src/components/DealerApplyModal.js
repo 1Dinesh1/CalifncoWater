@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useTheme } from '../theme/ThemeContext';
 
 /**
  * Format timestamp into human-readable date
@@ -53,6 +54,7 @@ export default function DealerApplyModal({
   onOpenAuth,
   onStatusUpdated,
 }) {
+  const { theme, isDark } = useTheme();
   const [existingApp, setExistingApp] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [businessName, setBusinessName] = useState('');
@@ -222,47 +224,47 @@ export default function DealerApplyModal({
       onRequestClose={handleModalClose}
     >
       <KeyboardAvoidingView
-        style={styles.keyboardView}
+        style={[styles.keyboardView, { backgroundColor: theme.background }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
           {/* Header Bar */}
-          <View style={styles.header}>
+          <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
             <View style={styles.headerLeft}>
-              <View style={styles.headerIconBox}>
+              <View style={[styles.headerIconBox, { backgroundColor: theme.primaryLight }]}>
                 <Text style={styles.headerIcon}>🏢</Text>
               </View>
               <View>
-                <Text style={styles.headerTitle}>Dealership Program</Text>
-                <Text style={styles.headerSubtitle}>
+                <Text style={[styles.headerTitle, { color: theme.text }]}>Dealership Program</Text>
+                <Text style={[styles.headerSubtitle, { color: theme.textMuted }]}>
                   Califnco Authorized Partner Network
                 </Text>
               </View>
             </View>
 
             <TouchableOpacity
-              style={styles.closeButton}
+              style={[styles.closeButton, { backgroundColor: theme.surfaceSubtle }]}
               onPress={handleModalClose}
               activeOpacity={0.7}
               accessibilityLabel="Close dealer application"
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={[styles.closeButtonText, { color: theme.textMuted }]}>✕</Text>
             </TouchableOpacity>
           </View>
 
           {/* Body Content */}
           {!currentUser ? (
             /* Guest Prompt */
-            <View style={styles.guestContainer}>
-              <View style={styles.guestIconBox}>
+            <View style={[styles.guestContainer, { backgroundColor: theme.background }]}>
+              <View style={[styles.guestIconBox, { backgroundColor: theme.primaryLight }]}>
                 <Text style={styles.guestIcon}>🔐</Text>
               </View>
-              <Text style={styles.guestTitle}>Sign In Required</Text>
-              <Text style={styles.guestSubtitle}>
+              <Text style={[styles.guestTitle, { color: theme.text }]}>Sign In Required</Text>
+              <Text style={[styles.guestSubtitle, { color: theme.textMuted }]}>
                 You must have an active Califnco account to apply for dealership status and access wholesale rates.
               </Text>
               <TouchableOpacity
-                style={styles.guestSignInButton}
+                style={[styles.guestSignInButton, { backgroundColor: theme.primaryDark }]}
                 onPress={() => {
                   handleModalClose();
                   if (onOpenAuth) onOpenAuth();
@@ -276,7 +278,7 @@ export default function DealerApplyModal({
             /* Loading Profile State */
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#0284c7" />
-              <Text style={styles.loadingText}>Checking dealership status...</Text>
+              <Text style={[styles.loadingText, { color: theme.textMuted }]}>Checking dealership status...</Text>
             </View>
           ) : existingApp ? (
             /* Existing Application Status View */
@@ -286,43 +288,43 @@ export default function DealerApplyModal({
             >
               {/* Status Banner */}
               {existingApp.status === 'approved' ? (
-                <View style={[styles.statusBanner, styles.bannerApproved]}>
+                <View style={[styles.statusBanner, styles.bannerApproved, { backgroundColor: isDark ? '#064e3b' : '#dcfce7', borderColor: isDark ? '#059669' : '#86efac' }]}>
                   <View style={styles.statusBannerIconBox}>
                     <Text style={styles.statusBannerIcon}>✅</Text>
                   </View>
                   <View style={styles.statusBannerTextCol}>
-                    <Text style={[styles.statusBannerTitle, styles.titleApproved]}>
+                    <Text style={[styles.statusBannerTitle, styles.titleApproved, { color: isDark ? '#34d399' : '#15803d' }]}>
                       Dealership Approved
                     </Text>
-                    <Text style={styles.statusBannerSubtitle}>
+                    <Text style={[styles.statusBannerSubtitle, { color: isDark ? '#a7f3d0' : '#166534' }]}>
                       Congratulations! Your business is an authorized Califnco Water dealer.
                     </Text>
                   </View>
                 </View>
               ) : existingApp.status === 'rejected' ? (
-                <View style={[styles.statusBanner, styles.bannerRejected]}>
+                <View style={[styles.statusBanner, styles.bannerRejected, { backgroundColor: isDark ? '#7f1d1d' : '#fee2e2', borderColor: isDark ? '#ef4444' : '#fca5a5' }]}>
                   <View style={styles.statusBannerIconBox}>
                     <Text style={styles.statusBannerIcon}>❌</Text>
                   </View>
                   <View style={styles.statusBannerTextCol}>
-                    <Text style={[styles.statusBannerTitle, styles.titleRejected]}>
+                    <Text style={[styles.statusBannerTitle, styles.titleRejected, { color: isDark ? '#f87171' : '#b91c1c' }]}>
                       Application Not Approved
                     </Text>
-                    <Text style={styles.statusBannerSubtitle}>
+                    <Text style={[styles.statusBannerSubtitle, { color: isDark ? '#fecaca' : '#991b1b' }]}>
                       Your application could not be approved at this time. Please contact support@califnco.com for inquiries.
                     </Text>
                   </View>
                 </View>
               ) : (
-                <View style={[styles.statusBanner, styles.bannerPending]}>
+                <View style={[styles.statusBanner, styles.bannerPending, { backgroundColor: isDark ? '#78350f' : '#fef3c7', borderColor: isDark ? '#f59e0b' : '#fcd34d' }]}>
                   <View style={styles.statusBannerIconBox}>
                     <Text style={styles.statusBannerIcon}>⏳</Text>
                   </View>
                   <View style={styles.statusBannerTextCol}>
-                    <Text style={[styles.statusBannerTitle, styles.titlePending]}>
+                    <Text style={[styles.statusBannerTitle, styles.titlePending, { color: isDark ? '#fbbf24' : '#b45309' }]}>
                       Application Under Review
                     </Text>
-                    <Text style={styles.statusBannerSubtitle}>
+                    <Text style={[styles.statusBannerSubtitle, { color: isDark ? '#fde68a' : '#92400e' }]}>
                       Your dealership request has been received and is awaiting administrative approval.
                     </Text>
                   </View>
@@ -330,48 +332,48 @@ export default function DealerApplyModal({
               )}
 
               {/* Application Details Card */}
-              <View style={styles.detailsCard}>
-                <Text style={styles.detailsCardHeading}>SUBMITTED BUSINESS DETAILS</Text>
+              <View style={[styles.detailsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <Text style={[styles.detailsCardHeading, { color: theme.textMuted }]}>SUBMITTED BUSINESS DETAILS</Text>
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Business Name</Text>
-                  <Text style={styles.detailValue}>{existingApp.businessName || '—'}</Text>
+                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Business Name</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>{existingApp.businessName || '—'}</Text>
                 </View>
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Contact Phone</Text>
-                  <Text style={styles.detailValue}>+91 {existingApp.phone || '—'}</Text>
+                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Contact Phone</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>+91 {existingApp.phone || '—'}</Text>
                 </View>
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>City / Town</Text>
-                  <Text style={styles.detailValue}>{existingApp.city || '—'}</Text>
+                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.textMuted }]}>City / Town</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>{existingApp.city || '—'}</Text>
                 </View>
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>GST Number</Text>
-                  <Text style={styles.detailValue}>
+                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.textMuted }]}>GST Number</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>
                     {existingApp.gstNumber || 'Not provided'}
                   </Text>
                 </View>
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Account Email</Text>
-                  <Text style={styles.detailValue}>{existingApp.email || currentUser.email}</Text>
+                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Account Email</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>{existingApp.email || currentUser.email}</Text>
                 </View>
 
                 <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.detailLabel}>Applied Date</Text>
-                  <Text style={styles.detailValue}>
+                  <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Applied Date</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>
                     {formatApplicationDate(existingApp.createdAt)}
                   </Text>
                 </View>
               </View>
 
               {/* Informational Guidance */}
-              <View style={styles.infoBox}>
-                <Text style={styles.infoBoxTitle}>💡 What Happens Next?</Text>
-                <Text style={styles.infoBoxText}>
+              <View style={[styles.infoBox, { backgroundColor: isDark ? '#0c2d48' : '#f0f9ff', borderColor: isDark ? '#0284c7' : '#bae6fd' }]}>
+                <Text style={[styles.infoBoxTitle, { color: isDark ? '#38bdf8' : '#0369a1' }]}>💡 What Happens Next?</Text>
+                <Text style={[styles.infoBoxText, { color: isDark ? '#bae6fd' : '#0369a1' }]}>
                   • Califnco operational staff verifies your business credentials.{'\n'}
                   • Once approved, wholesale prices and bulk ordering tools become active on your mobile catalogue.{'\n'}
                   • Applications cannot be overwritten to protect your verified status.
@@ -380,7 +382,7 @@ export default function DealerApplyModal({
 
               {/* Done Button */}
               <TouchableOpacity
-                style={styles.doneButton}
+                style={[styles.doneButton, { backgroundColor: isDark ? '#334155' : '#0f172a' }]}
                 onPress={handleModalClose}
                 activeOpacity={0.85}
               >
@@ -395,10 +397,10 @@ export default function DealerApplyModal({
               keyboardShouldPersistTaps="handled"
             >
               {/* Form Intro Banner */}
-              <View style={styles.introBanner}>
+              <View style={[styles.introBanner, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <Text style={styles.introBadge}>WHOLESALE & DISTRIBUTION</Text>
-                <Text style={styles.introTitle}>Apply for Dealership</Text>
-                <Text style={styles.introSubtitle}>
+                <Text style={[styles.introTitle, { color: theme.text }]}>Apply for Dealership</Text>
+                <Text style={[styles.introSubtitle, { color: theme.textMuted }]}>
                   Partner with Califnco Water to access exclusive dealer margins, bulk lot pricing, and priority dispatch.
                 </Text>
               </View>
@@ -413,24 +415,24 @@ export default function DealerApplyModal({
 
               {/* Account Email (Context) */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Registered Account Email</Text>
-                <View style={styles.disabledInputBox}>
-                  <Text style={styles.disabledInputText}>{currentUser.email}</Text>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>Registered Account Email</Text>
+                <View style={[styles.disabledInputBox, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
+                  <Text style={[styles.disabledInputText, { color: theme.textMuted }]}>{currentUser.email}</Text>
                 </View>
-                <Text style={styles.inputHelperText}>
+                <Text style={[styles.inputHelperText, { color: theme.textMuted }]}>
                   Your dealership will be linked to this account.
                 </Text>
               </View>
 
               {/* Business Name */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>
                   Business / Dealership Name <Text style={styles.requiredMark}>*</Text>
                 </Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
                   placeholder="e.g. Apex Water Technologies"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.textMuted}
                   value={businessName}
                   onChangeText={(val) => {
                     setBusinessName(val);
@@ -442,17 +444,17 @@ export default function DealerApplyModal({
 
               {/* Contact Phone */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>
                   Contact Phone Number <Text style={styles.requiredMark}>*</Text>
                 </Text>
                 <View style={styles.phoneInputRow}>
-                  <View style={styles.prefixBox}>
-                    <Text style={styles.prefixText}>+91</Text>
+                  <View style={[styles.prefixBox, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
+                    <Text style={[styles.prefixText, { color: theme.text }]}>+91</Text>
                   </View>
                   <TextInput
-                    style={[styles.input, styles.phoneInput]}
+                    style={[styles.input, styles.phoneInput, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
                     placeholder="10-digit mobile number"
-                    placeholderTextColor="#94a3b8"
+                    placeholderTextColor={theme.textMuted}
                     keyboardType="phone-pad"
                     maxLength={10}
                     value={phone}
@@ -466,13 +468,13 @@ export default function DealerApplyModal({
 
               {/* City / Location */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>
                   City / Town <Text style={styles.requiredMark}>*</Text>
                 </Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
                   placeholder="e.g. Mumbai, Pune, Nagpur"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.textMuted}
                   value={city}
                   onChangeText={(val) => {
                     setCity(val);
@@ -484,13 +486,13 @@ export default function DealerApplyModal({
 
               {/* Optional GSTIN */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>
                   GSTIN (Optional)
                 </Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
                   placeholder="e.g. 27AAAAA0000A1Z5"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.textMuted}
                   autoCapitalize="characters"
                   maxLength={15}
                   value={gstNumber}
@@ -499,7 +501,7 @@ export default function DealerApplyModal({
                     if (validationError) setValidationError('');
                   }}
                 />
-                <Text style={styles.inputHelperText}>
+                <Text style={[styles.inputHelperText, { color: theme.textMuted }]}>
                   Provide 15-character GSTIN for B2B input tax credit invoices.
                 </Text>
               </View>

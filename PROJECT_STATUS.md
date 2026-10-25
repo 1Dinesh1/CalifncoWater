@@ -202,6 +202,75 @@ D:\CalifncoProject\CalifncoWater
     7. Click the "Refresh" button and verify live cross-customer orders and service requests populate the tables.
     8. Test updating an order status from "placed" to "confirmed" and a service booking from "requested" to "confirmed".
 - M5-automation: not started.
+- M6-mobile-polish: IMPLEMENTED (Animations, Product Image Lightbox/Zoom, Referral System, and Dark Mode implemented; pending manual Android device verification).
+  - Implemented features:
+    - Feature A — Dark Mode:
+      - Dedicated `src/theme/ThemeContext.js` providing `ThemeProvider`, `useTheme()` hook, and comprehensive semantic palettes (`THEME_COLORS.light` and `THEME_COLORS.dark`).
+      - Light / Dark / System theme toggle pills in `src/screens/AccountScreen.js`.
+      - Real-time `Appearance` listener dynamically responding to system changes when "system" is selected.
+      - Persistent theme selection across hot-reloads and screen changes without installing extra packages.
+      - Full theme coverage across screens and modals: `CatalogueScreen`, `AccountScreen`, `ProductCard`, `BottomNavBar`, `AuthModal`, `CartModal`, `OrdersModal`, `ServiceBookingModal`, `DealerApplyModal`, and `App.js` with dynamic `StatusBar` (light/dark icons).
+    - Feature B — Product Image Lightbox / Zoom:
+      - Created `src/components/ImageLightboxModal.js` featuring an immersive full-screen dark backdrop, safe area support, close header, and image viewer.
+      - Tappable product image on `ProductCard` with high-contrast "🔍 View" badge invoking full-screen inspection without triggering cart mutations.
+      - iOS pinch-to-zoom using native `ScrollView` with `maximumZoomScale={3}`.
+      - Android 1x/2x double-tap zoom toggle with smooth `Animated.spring` scaling.
+      - Loading activity indicator, image load error fallback, and Android hardware back button handler.
+    - Feature C — Subtle Animations:
+      - Pure React Native `Animated` API with `useNativeDriver: true` for zero-overhead, 60fps native thread execution without adding packages.
+      - Staggered card entrance animation (`opacity` fade + `translateY` slide) on product cards in `ProductCard.js`.
+      - Tactile button bounce / scale pulse on "Add to Cart" button press in `ProductCard.js`.
+      - Floating bottom cart bar entrance spring (`Animated.spring`) on `CatalogueScreen.js`.
+      - Full-screen lightbox fade-in and scale spring in `ImageLightboxModal.js`.
+    - Feature D — Referral System:
+      - Utility module `src/utils/referral.js`:
+        - `getReferralCode(user)`: Derives deterministic, stable, brand-consistent codes (`CALIF-XXXXXX`).
+        - `isValidReferralCode(code)`: Strict format validation regex.
+        - `isSelfReferral(code, userOrUid)`: Guards against self-referral abuse.
+        - `shareReferralCode(code, userEmail)`: React Native native `Share` dialog with custom viral invitation copy.
+        - `recordReferralAttribution(db, newUserId, newUserEmail, rawReferralCode)`: Safely attributes referrals with try-catch in-memory fallback ensuring signup never breaks even when Firestore `/referrals` collection is not yet deployed.
+      - Account Screen integration: dedicated "REFERRAL PROGRAM" card displaying customer's personal code with one-tap native share and copy actions.
+      - Registration integration: optional "Referral Invitation Code" field in `AuthModal.js` with instant format validation, self-referral prevention, and attribution on successful registration.
+      - Documented proposed security rules in `firestore.rules.proposed` for `/referrals/{referralId}`.
+  - Files created:
+    - `src/theme/ThemeContext.js`: Theme provider, color schemes, in-memory & local storage persistence, and `useTheme` hook.
+    - `src/utils/referral.js`: Deterministic referral code derivation, format validator, self-referral check, native share action, and safe attribution writer.
+    - `src/components/ImageLightboxModal.js`: Full-screen image viewer with pinch-to-zoom on iOS, 1x/2x double-tap toggle on Android, loading/error states, and back button support.
+  - Files modified:
+    - `App.js`: Wrapped in `ThemeProvider`, dynamic status bar styling and root background.
+    - `src/screens/CatalogueScreen.js`: Theme styling, floating bottom cart spring animation, lightbox state and modal integration.
+    - `src/screens/AccountScreen.js`: Theme styling, Light/Dark/System theme selector, personal referral code card, and native share button.
+    - `src/components/ProductCard.js`: Theme styling, entrance animation, Add to Cart bounce animation, and tappable product image with view badge.
+    - `src/components/BottomNavBar.js`: Theme styling for surface, borders, active/inactive tab labels and icons.
+    - `src/components/AuthModal.js`: Theme styling, optional referral code input on registration, format validation, self-referral prevention, and safe attribution call.
+    - `src/components/CartModal.js`: Theme styling across item rows, input fields, order summaries, and action buttons.
+    - `src/components/OrdersModal.js`: Theme styling for order cards, delivery details, status badges, and empty/loading states.
+    - `src/components/ServiceBookingModal.js`: Theme styling for service type cards, date/time pills, input boxes, and submit button.
+    - `src/components/DealerApplyModal.js`: Theme styling for details card, guidance cards, status banners, and application form inputs.
+    - `firestore.rules.proposed`: Added proposed security rules for `/referrals/{referralId}` collection with UID ownership validation, self-referral prevention regex, field whitelist, and immutability.
+  - Test results:
+    - `node --check` syntax verification passed with 0 errors across all modified and created JavaScript files.
+    - Scratch unit test `test_polish_features.mjs` passed (referral code generation, format validation, self-referral prevention, and light/dark theme key consistency).
+  - Manual testing steps for Android (Expo Go):
+    - Dark Mode:
+      - Open Account tab. Select "Dark"; verify app background turns dark slate (`#090d16`), cards turn deep charcoal (`#111827`), text turns crisp white/gray, and status bar icons turn light.
+      - Open Cart, Orders, Service Booking, and Dealer modals; verify inputs, cards, and text contrast are crisp and readable.
+      - Select "System"; verify app switches based on device's Android dark/light mode toggle.
+    - Lightbox / Zoom:
+      - In catalogue, tap the product image or "🔍 View" badge on any product card.
+      - Verify full-screen lightbox opens with dark backdrop.
+      - Double tap image on Android to toggle 2x zoom smoothly.
+      - Tap top right "✕ Close" or Android hardware back button; verify modal closes cleanly and cart state is completely untouched.
+    - Animations:
+      - Scroll catalogue and observe gentle, non-blocking staggered card fade/slide entrance.
+      - Tap "Add to Cart" and observe the tactile button bounce / scale pulse.
+      - Verify the floating bottom cart bar slides up smoothly with a spring when adding items.
+    - Referral System:
+      - In Account tab (logged in), verify your unique `CALIF-XXXXXX` code is displayed in the "REFERRAL PROGRAM" card.
+      - Tap "Share Referral Invite"; verify Android native share sheet opens with promotional invitation copy.
+      - Sign out, open "Register" tab in Auth modal, enter your own code; verify "You cannot use your own referral code" warning appears.
+      - Enter an invalid format code; verify validation error appears.
+      - Enter a valid friend's code or register without one; verify registration succeeds cleanly without any Firestore permission crashes.
 ## Working Rules
 1. Use free tools and free tiers only. Never enable billing or paid usage without explicit approval.
 2. Keep all work in this project folder unless a separate folder is intentionally required.

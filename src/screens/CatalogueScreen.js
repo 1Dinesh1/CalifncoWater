@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   Alert,
   BackHandler,
+  Animated,
   StatusBar as RNStatusBar,
 } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -23,7 +24,9 @@ import OrdersModal from '../components/OrdersModal';
 import ServiceBookingModal from '../components/ServiceBookingModal';
 import DealerApplyModal from '../components/DealerApplyModal';
 import BottomNavBar from '../components/BottomNavBar';
+import ImageLightboxModal from '../components/ImageLightboxModal';
 import AccountScreen from './AccountScreen';
+import { useTheme } from '../theme/ThemeContext';
 
 // Standalone Top-Level Header Component to prevent remounting and maintain TextInput focus
 function CatalogueHeader({
@@ -40,31 +43,33 @@ function CatalogueHeader({
   currentUser,
   isApprovedDealer = false,
   dealerBusinessName = '',
+  theme,
+  isDark,
 }) {
   return (
-    <View style={styles.headerContainer}>
+    <View style={[styles.headerContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
       {/* Brand Header & Cart Button */}
       <View style={styles.topBar}>
         <View style={styles.brandContainer}>
-          <View style={styles.brandIconBox}>
+          <View style={[styles.brandIconBox, { backgroundColor: theme.primaryLight, borderColor: isDark ? theme.border : '#bae6fd' }]}>
             <Text style={styles.brandIcon}>💧</Text>
           </View>
           <View>
-            <Text style={styles.brandTitle}>Califnco Water</Text>
-            <Text style={styles.brandTagline}>Pure & Safe Hydration Solutions</Text>
+            <Text style={[styles.brandTitle, { color: theme.text }]}>Califnco Water</Text>
+            <Text style={[styles.brandTagline, { color: theme.textMuted }]}>Pure & Safe Hydration Solutions</Text>
           </View>
         </View>
 
         {/* Header Cart Icon Button */}
         <TouchableOpacity
-          style={styles.cartIconButton}
+          style={[styles.cartIconButton, { backgroundColor: theme.surfaceSubtle }]}
           onPress={onOpenCart}
           activeOpacity={0.7}
           accessibilityLabel="Shopping Cart"
         >
           <Text style={styles.cartIconText}>🛒</Text>
           {totalCartCount > 0 && (
-            <View style={styles.cartBadge}>
+            <View style={[styles.cartBadge, { backgroundColor: theme.primaryDark, borderColor: theme.surface }]}>
               <Text style={styles.cartBadgeText}>
                 {totalCartCount > 99 ? '99+' : totalCartCount}
               </Text>
@@ -75,13 +80,39 @@ function CatalogueHeader({
 
       {/* Dealer Wholesale Pricing Active Indicator Banner */}
       {isApprovedDealer && (
-        <View style={styles.dealerPricingIndicator}>
-          <View style={styles.dealerIndicatorIconBox}>
+        <View
+          style={[
+            styles.dealerPricingIndicator,
+            {
+              backgroundColor: isDark ? '#064e3b' : '#f0fdf4',
+              borderColor: isDark ? '#059669' : '#86efac',
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.dealerIndicatorIconBox,
+              { backgroundColor: isDark ? '#047857' : '#dcfce7' },
+            ]}
+          >
             <Text style={styles.dealerIndicatorIcon}>🏢</Text>
           </View>
           <View style={styles.dealerIndicatorTextCol}>
-            <Text style={styles.dealerIndicatorTitle}>Wholesale Pricing Active</Text>
-            <Text style={styles.dealerIndicatorSubtitle} numberOfLines={1}>
+            <Text
+              style={[
+                styles.dealerIndicatorTitle,
+                { color: isDark ? '#34d399' : '#166534' },
+              ]}
+            >
+              Wholesale Pricing Active
+            </Text>
+            <Text
+              style={[
+                styles.dealerIndicatorSubtitle,
+                { color: isDark ? '#a7f3d0' : '#15803d' },
+              ]}
+              numberOfLines={1}
+            >
               {dealerBusinessName ? `${dealerBusinessName} • ` : ''}Authorized Trade Rates & Bulk Ordering
             </Text>
           </View>
@@ -89,7 +120,16 @@ function CatalogueHeader({
       )}
 
       {/* Hero Welcome Card */}
-      <View style={styles.heroCard}>
+      <View
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: isDark ? '#082f49' : '#0284c7',
+            borderColor: isDark ? '#0284c7' : 'transparent',
+            borderWidth: isDark ? 1 : 0,
+          },
+        ]}
+      >
         <View style={styles.heroContent}>
           <Text style={[styles.heroBadge, isApprovedDealer && styles.heroBadgeDealer]}>
             {isApprovedDealer
@@ -118,12 +158,20 @@ function CatalogueHeader({
 
       {/* Search Input Bar */}
       <View style={styles.searchSection}>
-        <View style={styles.searchBox}>
+        <View
+          style={[
+            styles.searchBox,
+            {
+              backgroundColor: theme.inputBg,
+              borderColor: theme.inputBorder,
+            },
+          ]}
+        >
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.text }]}
             placeholder="Search purifiers, filters, dispensers..."
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={theme.textSubtle}
             value={searchQuery}
             onChangeText={onSearchChange}
             returnKeyType="search"
@@ -144,25 +192,50 @@ function CatalogueHeader({
       {/* Service Booking Quick Promo Banner */}
       <View style={styles.servicePromoSection}>
         <TouchableOpacity
-          style={styles.servicePromoCard}
+          style={[
+            styles.servicePromoCard,
+            {
+              backgroundColor: isDark ? '#0a1d12' : '#f0fdf4',
+              borderColor: isDark ? '#059669' : '#bbf7d0',
+            },
+          ]}
           onPress={onOpenBooking}
           activeOpacity={0.85}
         >
           <View style={styles.servicePromoLeft}>
-            <View style={styles.servicePromoIconBox}>
+            <View
+              style={[
+                styles.servicePromoIconBox,
+                { backgroundColor: isDark ? '#064e3b' : '#dcfce7' },
+              ]}
+            >
               <Text style={styles.servicePromoIcon}>🛠️</Text>
             </View>
             <View style={styles.servicePromoTextCol}>
               <View style={styles.servicePromoBadgeRow}>
-                <Text style={styles.servicePromoBadge}>DOORSTEP SERVICE</Text>
+                <Text
+                  style={[
+                    styles.servicePromoBadge,
+                    { color: isDark ? '#34d399' : '#16a34a' },
+                  ]}
+                >
+                  DOORSTEP SERVICE
+                </Text>
               </View>
-              <Text style={styles.servicePromoTitle}>Water Purifier Service & Repair</Text>
-              <Text style={styles.servicePromoSubtitle}>
+              <Text style={[styles.servicePromoTitle, { color: theme.text }]}>
+                Water Purifier Service & Repair
+              </Text>
+              <Text style={[styles.servicePromoSubtitle, { color: theme.textMuted }]}>
                 Installation • Filter Replacement • Maintenance
               </Text>
             </View>
           </View>
-          <View style={styles.servicePromoButton}>
+          <View
+            style={[
+              styles.servicePromoButton,
+              { backgroundColor: isDark ? '#059669' : '#16a34a' },
+            ]}
+          >
             <Text style={styles.servicePromoButtonText}>Book Now →</Text>
           </View>
         </TouchableOpacity>
@@ -170,7 +243,7 @@ function CatalogueHeader({
 
       {/* Category Pills (Horizontal Scroll) */}
       <View style={styles.categoriesSection}>
-        <Text style={styles.sectionLabel}>Categories</Text>
+        <Text style={[styles.sectionLabel, { color: theme.textSubtle }]}>Categories</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -187,7 +260,14 @@ function CatalogueHeader({
                 key={cat}
                 style={[
                   styles.categoryPill,
-                  isSelected && styles.categoryPillActive,
+                  {
+                    backgroundColor: isSelected
+                      ? theme.primaryDark
+                      : isDark
+                      ? theme.surfaceSubtle
+                      : '#f8fafc',
+                    borderColor: isSelected ? theme.primaryDark : theme.border,
+                  },
                 ]}
                 onPress={() => onSelectCategory(cat)}
                 activeOpacity={0.7}
@@ -196,7 +276,10 @@ function CatalogueHeader({
                 <Text
                   style={[
                     styles.categoryPillLabel,
-                    isSelected && styles.categoryPillLabelActive,
+                    {
+                      color: isSelected ? '#ffffff' : theme.textMuted,
+                      fontWeight: isSelected ? '700' : '600',
+                    },
                   ]}
                 >
                   {cat}
@@ -204,13 +287,19 @@ function CatalogueHeader({
                 <View
                   style={[
                     styles.categoryCountBadge,
-                    isSelected && styles.categoryCountBadgeActive,
+                    {
+                      backgroundColor: isSelected
+                        ? 'rgba(255, 255, 255, 0.25)'
+                        : isDark
+                        ? theme.border
+                        : '#e2e8f0',
+                    },
                   ]}
                 >
                   <Text
                     style={[
                       styles.categoryCountText,
-                      isSelected && styles.categoryCountTextActive,
+                      { color: isSelected ? '#ffffff' : theme.textMuted },
                     ]}
                   >
                     {count}
@@ -224,14 +313,14 @@ function CatalogueHeader({
 
       {/* Results Header */}
       <View style={styles.resultsInfoRow}>
-        <Text style={styles.resultsCountText}>
+        <Text style={[styles.resultsCountText, { color: theme.textMuted }]}>
           {filteredCount === 1
             ? '1 Product Available'
             : `${filteredCount} Products Available`}
         </Text>
         {(selectedCategory !== 'All' || searchQuery.trim().length > 0) && (
           <TouchableOpacity onPress={onResetFilters} activeOpacity={0.7}>
-            <Text style={styles.resetFiltersText}>Reset filters</Text>
+            <Text style={[styles.resetFiltersText, { color: theme.primary }]}>Reset filters</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -240,18 +329,18 @@ function CatalogueHeader({
 }
 
 // Standalone Empty State Component
-function EmptyResults({ searchQuery, onResetFilters }) {
+function EmptyResults({ searchQuery, onResetFilters, theme }) {
   return (
     <View style={styles.emptyResultsContainer}>
       <Text style={styles.emptyResultsIcon}>🔎</Text>
-      <Text style={styles.emptyResultsTitle}>No products found</Text>
-      <Text style={styles.emptyResultsSubtitle}>
+      <Text style={[styles.emptyResultsTitle, { color: theme.text }]}>No products found</Text>
+      <Text style={[styles.emptyResultsSubtitle, { color: theme.textMuted }]}>
         {searchQuery
           ? `We couldn't find anything matching "${searchQuery}". Try checking the spelling or searching another category.`
           : 'No products in this category at the moment.'}
       </Text>
       <TouchableOpacity
-        style={styles.resetButton}
+        style={[styles.resetButton, { backgroundColor: theme.primaryDark }]}
         onPress={onResetFilters}
         activeOpacity={0.8}
       >
@@ -262,6 +351,7 @@ function EmptyResults({ searchQuery, onResetFilters }) {
 }
 
 export default function CatalogueScreen() {
+  const { theme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'account'
   const [currentUser, setCurrentUser] = useState(null);
   const [authModalVisible, setAuthModalVisible] = useState(false);
@@ -274,6 +364,13 @@ export default function CatalogueScreen() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cart, setCart] = useState({});
   const [cartModalVisible, setCartModalVisible] = useState(false);
+
+  // Feature B: Lightbox Product State
+  const [lightboxProduct, setLightboxProduct] = useState(null);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+
+  // Feature C: Restrained Bottom Cart Bar Animation
+  const cartBarAnim = useRef(new Animated.Value(90)).current;
 
   // Track Firebase customer authentication state & dealer application status
   useEffect(() => {
@@ -309,7 +406,12 @@ export default function CatalogueScreen() {
   // Android Hardware Back button handling
   useEffect(() => {
     const onHardwareBack = () => {
-      // 1. Dismiss active modals in order of precedence
+      // 1. Dismiss Lightbox viewer if active
+      if (lightboxVisible) {
+        setLightboxVisible(false);
+        return true;
+      }
+      // 2. Dismiss active modals in order of precedence
       if (cartModalVisible) {
         setCartModalVisible(false);
         return true;
@@ -330,12 +432,12 @@ export default function CatalogueScreen() {
         setAuthModalVisible(false);
         return true;
       }
-      // 2. If on Account tab, navigate smoothly back to Home
+      // 3. If on Account tab, navigate smoothly back to Home
       if (activeTab !== 'home') {
         setActiveTab('home');
         return true;
       }
-      // 3. If on Home with no modals open, let standard Android back action occur
+      // 4. If on Home with no modals open, let standard Android back action occur
       return false;
     };
 
@@ -346,6 +448,7 @@ export default function CatalogueScreen() {
 
     return () => backSub.remove();
   }, [
+    lightboxVisible,
     cartModalVisible,
     ordersModalVisible,
     bookingModalVisible,
@@ -401,6 +504,12 @@ export default function CatalogueScreen() {
     setCart({});
   };
 
+  // Feature B: Handle opening product lightbox without affecting cart
+  const handleOpenLightbox = (product) => {
+    setLightboxProduct(product);
+    setLightboxVisible(true);
+  };
+
   // Cart metrics
   const totalCartCount = useMemo(() => {
     return Object.values(cart).reduce((sum, qty) => sum + qty, 0);
@@ -413,6 +522,24 @@ export default function CatalogueScreen() {
       return sum + unitPrice * qty;
     }, 0);
   }, [cart, isApprovedDealer]);
+
+  // Animate bottom cart bar on cart state changes
+  useEffect(() => {
+    if (totalCartCount > 0 && activeTab === 'home') {
+      Animated.spring(cartBarAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 50,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(cartBarAnim, {
+        toValue: 90,
+        duration: 160,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [totalCartCount, activeTab]);
 
   // Product counts per category for filter pills
   const categoryCounts = useMemo(() => {
@@ -448,7 +575,7 @@ export default function CatalogueScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
       {/* Active View: Account Screen or Catalogue Home */}
       {activeTab === 'account' ? (
         <AccountScreen
@@ -472,6 +599,7 @@ export default function CatalogueScreen() {
               onAddToCart={handleAddToCart}
               onIncrement={handleIncrement}
               onDecrement={handleDecrement}
+              onImagePress={handleOpenLightbox}
               isApprovedDealer={isApprovedDealer}
             />
           )}
@@ -490,12 +618,15 @@ export default function CatalogueScreen() {
               currentUser={currentUser}
               isApprovedDealer={isApprovedDealer}
               dealerBusinessName={dealerBusinessName}
+              theme={theme}
+              isDark={isDark}
             />
           }
           ListEmptyComponent={
             <EmptyResults
               searchQuery={searchQuery}
               onResetFilters={handleResetFilters}
+              theme={theme}
             />
           }
           contentContainerStyle={[
@@ -510,28 +641,49 @@ export default function CatalogueScreen() {
 
       {/* Floating Bottom Cart Bar (active on Home when cart has items) */}
       {activeTab === 'home' && totalCartCount > 0 && (
-        <View style={styles.bottomCartBar}>
+        <Animated.View
+          style={[
+            styles.bottomCartBar,
+            {
+              backgroundColor: theme.surface,
+              borderTopColor: theme.border,
+              transform: [{ translateY: cartBarAnim }],
+            },
+          ]}
+        >
           <View style={styles.bottomCartInfo}>
-            <View style={styles.bottomCartCountBadge}>
-              <Text style={styles.bottomCartCountText}>🛒 {totalCartCount}</Text>
+            <View
+              style={[
+                styles.bottomCartCountBadge,
+                {
+                  backgroundColor: theme.primaryLight,
+                  borderColor: isDark ? theme.primary : '#bae6fd',
+                },
+              ]}
+            >
+              <Text style={[styles.bottomCartCountText, { color: theme.primary }]}>
+                🛒 {totalCartCount}
+              </Text>
             </View>
             <View style={styles.bottomCartPriceGroup}>
-              <Text style={styles.bottomCartTotalLabel}>Total Amount</Text>
-              <Text style={styles.bottomCartTotalPrice}>
+              <Text style={[styles.bottomCartTotalLabel, { color: theme.textMuted }]}>
+                Total Amount
+              </Text>
+              <Text style={[styles.bottomCartTotalPrice, { color: theme.text }]}>
                 {formatPrice(totalCartAmount)}
               </Text>
             </View>
           </View>
 
           <TouchableOpacity
-            style={styles.viewCartButton}
+            style={[styles.viewCartButton, { backgroundColor: theme.primaryDark }]}
             onPress={() => setCartModalVisible(true)}
             activeOpacity={0.85}
           >
             <Text style={styles.viewCartButtonText}>View Cart</Text>
             <Text style={styles.viewCartArrow}>→</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       )}
 
       {/* Persistent Bottom Tab Navigation Bar */}
@@ -539,6 +691,13 @@ export default function CatalogueScreen() {
         activeTab={activeTab}
         onTabPress={handleTabPress}
         currentUser={currentUser}
+      />
+
+      {/* Product Image Lightbox Modal */}
+      <ImageLightboxModal
+        visible={lightboxVisible}
+        product={lightboxProduct}
+        onClose={() => setLightboxVisible(false)}
       />
 
       {/* Shopping Cart Modal */}
@@ -900,10 +1059,6 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     gap: 6,
   },
-  categoryPillActive: {
-    backgroundColor: '#0284c7',
-    borderColor: '#0284c7',
-  },
   categoryPillIcon: {
     fontSize: 13,
   },
@@ -911,10 +1066,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#475569',
-  },
-  categoryPillLabelActive: {
-    color: '#ffffff',
-    fontWeight: '700',
   },
   categoryCountBadge: {
     backgroundColor: '#e2e8f0',
@@ -924,16 +1075,10 @@ const styles = StyleSheet.create({
     minWidth: 18,
     alignItems: 'center',
   },
-  categoryCountBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
   categoryCountText: {
     fontSize: 10,
     fontWeight: '700',
     color: '#64748b',
-  },
-  categoryCountTextActive: {
-    color: '#ffffff',
   },
   resultsInfoRow: {
     flexDirection: 'row',

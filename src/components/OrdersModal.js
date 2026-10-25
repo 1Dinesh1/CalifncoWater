@@ -14,6 +14,7 @@ import {
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { formatPrice } from '../data/products';
+import { useTheme } from '../theme/ThemeContext';
 
 /**
  * Format Firestore Timestamp, Date, or numeric millisecond timestamp
@@ -105,7 +106,7 @@ function getOrderStatusMeta(status = 'placed') {
 /**
  * Render an individual order card (read-only)
  */
-function OrderCard({ order }) {
+function OrderCard({ order, theme, isDark }) {
   const statusMeta = getOrderStatusMeta(order.orderStatus);
   const formattedDate = formatOrderDate(order.createdAt);
   const shortenedId = order.id ? `#${order.id.slice(0, 8).toUpperCase()}` : '#ORDER';
@@ -114,28 +115,28 @@ function OrderCard({ order }) {
   const isWholesale = order.orderType === 'wholesale';
 
   return (
-    <View style={styles.orderCard}>
+    <View style={[styles.orderCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       {/* Top Header: Order ID & Date */}
       <View style={styles.orderCardHeader}>
         <View style={styles.orderIdGroup}>
-          <Text style={styles.orderIdPrefix}>Order ID:</Text>
-          <View style={styles.orderIdBadge}>
-            <Text style={styles.orderIdText}>{shortenedId}</Text>
+          <Text style={[styles.orderIdPrefix, { color: theme.textMuted }]}>Order ID:</Text>
+          <View style={[styles.orderIdBadge, { backgroundColor: theme.surfaceSubtle }]}>
+            <Text style={[styles.orderIdText, { color: theme.text }]}>{shortenedId}</Text>
           </View>
           {isWholesale && (
-            <View style={styles.wholesaleBadge}>
-              <Text style={styles.wholesaleBadgeText}>🏢 WHOLESALE</Text>
+            <View style={[styles.wholesaleBadge, { backgroundColor: isDark ? '#082f49' : '#e0f2fe' }]}>
+              <Text style={[styles.wholesaleBadgeText, { color: theme.primary }]}>🏢 WHOLESALE</Text>
             </View>
           )}
         </View>
-        <Text style={styles.orderDateText}>{formattedDate}</Text>
+        <Text style={[styles.orderDateText, { color: theme.textSubtle }]}>{formattedDate}</Text>
       </View>
 
       {/* Wholesale Business Name Banner */}
       {isWholesale && order.businessName ? (
-        <View style={styles.businessNameBanner}>
+        <View style={[styles.businessNameBanner, { backgroundColor: isDark ? '#064e3b' : '#f0fdf4', borderColor: isDark ? '#059669' : '#bbf7d0' }]}>
           <Text style={styles.businessNameIcon}>🏢</Text>
-          <Text style={styles.businessNameText} numberOfLines={1}>
+          <Text style={[styles.businessNameText, { color: isDark ? '#34d399' : '#166534' }]} numberOfLines={1}>
             Dealership: {order.businessName}
           </Text>
         </View>
@@ -169,24 +170,24 @@ function OrderCard({ order }) {
 
       {/* Items Section */}
       <View style={styles.itemsSection}>
-        <Text style={styles.itemsSectionTitle}>
+        <Text style={[styles.itemsSectionTitle, { color: theme.textSubtle }]}>
           ITEMS ({order.totalItems || order.items?.length || 0})
         </Text>
         {Array.isArray(order.items) &&
           order.items.map((item, index) => (
             <View key={item.productId || `${order.id}-item-${index}`} style={styles.itemRow}>
-              <View style={styles.itemBulletBox}>
+              <View style={[styles.itemBulletBox, { backgroundColor: theme.primaryLight }]}>
                 <Text style={styles.itemBullet}>💧</Text>
               </View>
               <View style={styles.itemDetails}>
-                <Text style={styles.itemName} numberOfLines={2}>
+                <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={2}>
                   {item.name || 'Product'}
                 </Text>
-                <Text style={styles.itemQuantityPrice}>
+                <Text style={[styles.itemQuantityPrice, { color: theme.textMuted }]}>
                   Qty: {item.quantity} × {formatPrice(item.unitPrice || 0)}{isWholesale ? ' (Wholesale)' : ''}
                 </Text>
               </View>
-              <Text style={styles.itemSubtotal}>
+              <Text style={[styles.itemSubtotal, { color: theme.text }]}>
                 {formatPrice(item.itemSubtotal != null ? item.itemSubtotal : (item.unitPrice || 0) * (item.quantity || 1))}
               </Text>
             </View>
@@ -194,38 +195,38 @@ function OrderCard({ order }) {
       </View>
 
       {/* Divider */}
-      <View style={styles.cardDivider} />
+      <View style={[styles.cardDivider, { backgroundColor: theme.borderSubtle }]} />
 
       {/* Total Amount Row */}
       <View style={styles.totalRow}>
         <View>
-          <Text style={styles.totalLabel}>Total Order Amount</Text>
-          <Text style={styles.totalMethodSubtext}>Pay on Delivery (COD)</Text>
+          <Text style={[styles.totalLabel, { color: theme.textMuted }]}>Total Order Amount</Text>
+          <Text style={[styles.totalMethodSubtext, { color: theme.textSubtle }]}>Pay on Delivery (COD)</Text>
         </View>
-        <Text style={styles.totalAmountValue}>{formatPrice(order.totalAmount || 0)}</Text>
+        <Text style={[styles.totalAmountValue, { color: theme.primary }]}>{formatPrice(order.totalAmount || 0)}</Text>
       </View>
 
       {/* Delivery Summary */}
       {(order.deliveryAddress || order.customerPhone) && (
-        <View style={styles.deliveryBox}>
-          <Text style={styles.deliveryBoxTitle}>DELIVERY ADDRESS</Text>
+        <View style={[styles.deliveryBox, { backgroundColor: theme.surfaceSubtle, borderColor: theme.borderSubtle }]}>
+          <Text style={[styles.deliveryBoxTitle, { color: theme.textSubtle }]}>DELIVERY ADDRESS</Text>
           {isWholesale && order.businessName ? (
-            <Text style={styles.deliveryRecipient} numberOfLines={1}>
+            <Text style={[styles.deliveryRecipient, { color: theme.text }]} numberOfLines={1}>
               🏢 {order.businessName}
             </Text>
           ) : null}
           {order.customerName ? (
-            <Text style={styles.deliveryRecipient} numberOfLines={1}>
+            <Text style={[styles.deliveryRecipient, { color: theme.text }]} numberOfLines={1}>
               {isWholesale ? 'Contact Person: ' : ''}{order.customerName}
             </Text>
           ) : null}
           {order.deliveryAddress ? (
-            <Text style={styles.deliveryAddressText} numberOfLines={3}>
+            <Text style={[styles.deliveryAddressText, { color: theme.textMuted }]} numberOfLines={3}>
               {order.deliveryAddress}
             </Text>
           ) : null}
           {order.customerPhone ? (
-            <Text style={styles.deliveryPhoneText}>
+            <Text style={[styles.deliveryPhoneText, { color: theme.textMuted }]}>
               Contact: {order.customerPhone}
             </Text>
           ) : null}
@@ -241,6 +242,7 @@ export default function OrdersModal({
   currentUser = null,
   onOpenAuth,
 }) {
+  const { theme, isDark } = useTheme();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -318,13 +320,13 @@ export default function OrdersModal({
       transparent={false}
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         {/* Modal Top Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
           <View style={styles.headerTitleRow}>
-            <Text style={styles.headerTitle}>My Orders</Text>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>My Orders</Text>
             {currentUser && orders.length > 0 && (
-              <View style={styles.headerCountBadge}>
+              <View style={[styles.headerCountBadge, { backgroundColor: theme.primaryDark }]}>
                 <Text style={styles.headerCountText}>{orders.length}</Text>
               </View>
             )}
@@ -334,7 +336,7 @@ export default function OrdersModal({
             {currentUser && !loading && (
               <TouchableOpacity
                 onPress={handleRefresh}
-                style={styles.refreshButton}
+                style={[styles.refreshButton, { backgroundColor: theme.surfaceSubtle }]}
                 activeOpacity={0.7}
               >
                 <Text style={styles.refreshButtonText}>🔄</Text>
@@ -342,10 +344,10 @@ export default function OrdersModal({
             )}
             <TouchableOpacity
               onPress={onClose}
-              style={styles.closeButton}
+              style={[styles.closeButton, { backgroundColor: theme.surfaceSubtle }]}
               activeOpacity={0.7}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={[styles.closeButtonText, { color: theme.textMuted }]}>✕</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -354,15 +356,15 @@ export default function OrdersModal({
         {!currentUser ? (
           // Guest State: Sign-in Required
           <View style={styles.stateCenterContainer}>
-            <View style={styles.stateIconCircle}>
+            <View style={[styles.stateIconCircle, { backgroundColor: theme.primaryLight }]}>
               <Text style={styles.stateIcon}>👤</Text>
             </View>
-            <Text style={styles.stateTitle}>Sign In to View Your Orders</Text>
-            <Text style={styles.stateSubtitle}>
+            <Text style={[styles.stateTitle, { color: theme.text }]}>Sign In to View Your Orders</Text>
+            <Text style={[styles.stateSubtitle, { color: theme.textMuted }]}>
               Please sign in with your Califnco Water customer account to view your past orders, delivery status, and order details.
             </Text>
             <TouchableOpacity
-              style={styles.primaryActionButton}
+              style={[styles.primaryActionButton, { backgroundColor: theme.primaryDark }]}
               onPress={() => {
                 onClose();
                 if (onOpenAuth) onOpenAuth();
@@ -376,7 +378,7 @@ export default function OrdersModal({
           // Loading State
           <View style={styles.stateCenterContainer}>
             <ActivityIndicator size="large" color="#0284c7" />
-            <Text style={styles.loadingText}>Fetching your orders...</Text>
+            <Text style={[styles.loadingText, { color: theme.textMuted }]}>Fetching your orders...</Text>
           </View>
         ) : error && orders.length === 0 ? (
           // Error State
@@ -384,10 +386,10 @@ export default function OrdersModal({
             <View style={[styles.stateIconCircle, styles.stateIconCircleError]}>
               <Text style={styles.stateIcon}>⚠️</Text>
             </View>
-            <Text style={styles.stateTitle}>Unable to Load Orders</Text>
-            <Text style={styles.stateSubtitle}>{error}</Text>
+            <Text style={[styles.stateTitle, { color: theme.text }]}>Unable to Load Orders</Text>
+            <Text style={[styles.stateSubtitle, { color: theme.textMuted }]}>{error}</Text>
             <TouchableOpacity
-              style={styles.primaryActionButton}
+              style={[styles.primaryActionButton, { backgroundColor: theme.primaryDark }]}
               onPress={() => {
                 setLoading(true);
                 fetchOrders();
@@ -400,15 +402,15 @@ export default function OrdersModal({
         ) : orders.length === 0 ? (
           // Empty State
           <View style={styles.stateCenterContainer}>
-            <View style={styles.stateIconCircle}>
+            <View style={[styles.stateIconCircle, { backgroundColor: theme.primaryLight }]}>
               <Text style={styles.stateIcon}>📦</Text>
             </View>
-            <Text style={styles.stateTitle}>No Orders Placed Yet</Text>
-            <Text style={styles.stateSubtitle}>
+            <Text style={[styles.stateTitle, { color: theme.text }]}>No Orders Placed Yet</Text>
+            <Text style={[styles.stateSubtitle, { color: theme.textMuted }]}>
               You haven't placed any orders with this account yet. Browse our certified water purifiers and accessories to place your first order!
             </Text>
             <TouchableOpacity
-              style={styles.primaryActionButton}
+              style={[styles.primaryActionButton, { backgroundColor: theme.primaryDark }]}
               onPress={onClose}
               activeOpacity={0.8}
             >
@@ -420,7 +422,7 @@ export default function OrdersModal({
           <FlatList
             data={orders}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <OrderCard order={item} />}
+            renderItem={({ item }) => <OrderCard order={item} theme={theme} isDark={isDark} />}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
