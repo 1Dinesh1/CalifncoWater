@@ -15,7 +15,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { CATEGORIES, CATEGORY_META, PRODUCTS, formatPrice } from '../data/products';
+import { CATEGORIES, CATEGORY_META, PRODUCTS, formatPrice, getProductPrice } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import CartModal from '../components/CartModal';
 import AuthModal from '../components/AuthModal';
@@ -38,6 +38,8 @@ function CatalogueHeader({
   filteredCount,
   onResetFilters,
   currentUser,
+  isApprovedDealer = false,
+  dealerBusinessName = '',
 }) {
   return (
     <View style={styles.headerContainer}>
@@ -71,19 +73,42 @@ function CatalogueHeader({
         </TouchableOpacity>
       </View>
 
+      {/* Dealer Wholesale Pricing Active Indicator Banner */}
+      {isApprovedDealer && (
+        <View style={styles.dealerPricingIndicator}>
+          <View style={styles.dealerIndicatorIconBox}>
+            <Text style={styles.dealerIndicatorIcon}>🏢</Text>
+          </View>
+          <View style={styles.dealerIndicatorTextCol}>
+            <Text style={styles.dealerIndicatorTitle}>Wholesale Pricing Active</Text>
+            <Text style={styles.dealerIndicatorSubtitle} numberOfLines={1}>
+              {dealerBusinessName ? `${dealerBusinessName} • ` : ''}Authorized Trade Rates & Bulk Ordering
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Hero Welcome Card */}
       <View style={styles.heroCard}>
         <View style={styles.heroContent}>
-          <Text style={styles.heroBadge}>
-            {currentUser
+          <Text style={[styles.heroBadge, isApprovedDealer && styles.heroBadgeDealer]}>
+            {isApprovedDealer
+              ? `🏢 DEALER: ${(dealerBusinessName || currentUser?.email?.split('@')[0] || '').toUpperCase()}`
+              : currentUser
               ? `CUSTOMER: ${currentUser.email?.split('@')[0].toUpperCase()}`
               : 'CERTIFIED WATER PURIFICATION'}
           </Text>
           <Text style={styles.heroHeading}>
-            {currentUser ? 'Pure Water For Your Home' : 'Drink Pure. Live Healthy.'}
+            {isApprovedDealer
+              ? 'Wholesale Catalogue & Bulk Ordering'
+              : currentUser
+              ? 'Pure Water For Your Home'
+              : 'Drink Pure. Live Healthy.'}
           </Text>
           <Text style={styles.heroSubtext}>
-            {currentUser
+            {isApprovedDealer
+              ? 'Exclusive wholesale trade margins and multi-unit ordering enabled for your verified dealership.'
+              : currentUser
               ? 'Browse genuine water purifiers, dispensers, replacement cartridges & accessories.'
               : 'Explore our genuine purifiers, dispensers, replacement cartridges & accessories.'}
           </Text>
@@ -244,6 +269,7 @@ export default function CatalogueScreen() {
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
   const [dealerModalVisible, setDealerModalVisible] = useState(false);
   const [dealerStatus, setDealerStatus] = useState(null);
+  const [dealerProfile, setDealerProfile] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cart, setCart] = useState({});
@@ -257,19 +283,28 @@ export default function CatalogueScreen() {
         try {
           const snap = await getDoc(doc(db, 'dealers', user.uid));
           if (snap.exists()) {
-            setDealerStatus(snap.data()?.status || 'pending');
+            const data = snap.data();
+            setDealerStatus(data?.status || 'pending');
+            setDealerProfile(data || null);
           } else {
             setDealerStatus(null);
+            setDealerProfile(null);
           }
         } catch {
           setDealerStatus(null);
+          setDealerProfile(null);
         }
       } else {
         setDealerStatus(null);
+        setDealerProfile(null);
       }
     });
     return unsubscribe;
   }, []);
+
+  // Strict check: only verified 'approved' dealers receive wholesale pricing
+  const isApprovedDealer = Boolean(currentUser && dealerStatus === 'approved');
+  const dealerBusinessName = dealerProfile?.businessName || '';
 
   // Android Hardware Back button handling
   useEffect(() => {
@@ -374,9 +409,10 @@ export default function CatalogueScreen() {
   const totalCartAmount = useMemo(() => {
     return Object.entries(cart).reduce((sum, [id, qty]) => {
       const product = PRODUCTS.find((p) => p.id === id);
-      return sum + (product?.price || 0) * qty;
+      const unitPrice = getProductPrice(product, isApprovedDealer);
+      return sum + unitPrice * qty;
     }, 0);
-  }, [cart]);
+  }, [cart, isApprovedDealer]);
 
   // Product counts per category for filter pills
   const categoryCounts = useMemo(() => {
@@ -436,6 +472,7 @@ export default function CatalogueScreen() {
               onAddToCart={handleAddToCart}
               onIncrement={handleIncrement}
               onDecrement={handleDecrement}
+              isApprovedDealer={isApprovedDealer}
             />
           )}
           ListHeaderComponent={
@@ -451,6 +488,8 @@ export default function CatalogueScreen() {
               filteredCount={filteredProducts.length}
               onResetFilters={handleResetFilters}
               currentUser={currentUser}
+              isApprovedDealer={isApprovedDealer}
+              dealerBusinessName={dealerBusinessName}
             />
           }
           ListEmptyComponent={
@@ -513,6 +552,8 @@ export default function CatalogueScreen() {
         onClearCart={handleClearCart}
         currentUser={currentUser}
         onOpenAuth={() => setAuthModalVisible(true)}
+        isApprovedDealer={isApprovedDealer}
+        dealerBusinessName={dealerBusinessName}
       />
 
       {/* Customer Authentication Modal */}
@@ -543,7 +584,16 @@ export default function CatalogueScreen() {
         onClose={() => setDealerModalVisible(false)}
         currentUser={currentUser}
         onOpenAuth={() => setAuthModalVisible(true)}
-        onStatusUpdated={(status) => setDealerStatus(status)}
+        onStatusUpdated={(status) => {
+          setDealerStatus(status);
+          if (currentUser?.uid) {
+            getDoc(doc(db, 'dealers', currentUser.uid))
+              .then((snap) => {
+                if (snap.exists()) setDealerProfile(snap.data());
+              })
+              .catch(() => {});
+          }
+        }}
       />
     </View>
   );
@@ -640,6 +690,44 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
   },
+  dealerPricingIndicator: {
+    marginHorizontal: 16,
+    marginTop: 2,
+    marginBottom: 10,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dealerIndicatorIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#dcfce7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dealerIndicatorIcon: {
+    fontSize: 14,
+  },
+  dealerIndicatorTextCol: {
+    flex: 1,
+  },
+  dealerIndicatorTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  dealerIndicatorSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#15803d',
+  },
   heroCard: {
     marginHorizontal: 16,
     marginTop: 4,
@@ -666,6 +754,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.8,
     marginBottom: 4,
+  },
+  heroBadgeDealer: {
+    color: '#86efac',
   },
   heroHeading: {
     color: '#ffffff',

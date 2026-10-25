@@ -13,6 +13,14 @@ service cloud.firestore {
       return isAuthenticated() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // Dealer authorization check: document must exist in 'dealers' collection with status == 'approved'
+    // Prevents unapproved or regular customers from claiming wholesale pricing or wholesale order status
+    function isApprovedDealer() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/dealers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/dealers/$(request.auth.uid)).data.status == 'approved';
+    }
+
     // -------------------------------------------------------------
     // Administrators Registry Collection
     // -------------------------------------------------------------
@@ -86,21 +94,22 @@ service cloud.firestore {
 
       // Customers can create orders strictly for their own UID
       allow create: if isAuthenticated()
-        // Enforce required fields
+        // Ownership verification: doc must be created for the authenticated user
+        && request.resource.data.userId == request.auth.uid
+        // Enforce required fields present on all orders
         && request.resource.data.keys().hasAll([
           'userId', 'customerEmail', 'customerPhone', 'deliveryAddress',
           'items', 'totalItems', 'totalAmount', 'orderStatus',
           'paymentMethod', 'paymentStatus', 'createdAt'
         ])
-        // Reject unexpected fields (whitelist only known attributes)
+        // Field whitelist: reject unexpected or injected attributes (permitting optional wholesale fields)
         && request.resource.data.keys().hasOnly([
           'userId', 'customerEmail', 'customerName', 'customerPhone',
           'deliveryAddress', 'items', 'totalItems', 'totalAmount',
-          'orderStatus', 'paymentMethod', 'paymentStatus', 'createdAt'
+          'orderStatus', 'paymentMethod', 'paymentStatus', 'createdAt',
+          'orderType', 'businessName'
         ])
-        // Ownership verification
-        && request.resource.data.userId == request.auth.uid
-        // Data type validation
+        // Customer contact & shipping data type validation
         && request.resource.data.customerEmail is string
         && request.resource.data.customerPhone is string
         && (request.resource.data.deliveryAddress is string || request.resource.data.deliveryAddress is map)
@@ -112,7 +121,24 @@ service cloud.firestore {
         && request.resource.data.totalItems > 0
         && request.resource.data.totalAmount is number
         && request.resource.data.totalAmount > 0
-        // Enforce initial statuses: Cash on Delivery only
+        // Order type authorization:
+        // Retail orders: orderType omitted or 'retail', no wholesale privileges claimed
+        // Wholesale orders: strictly requires verified approved dealer and matching registered businessName
+        && (
+          (
+            (!('orderType' in request.resource.data) || request.resource.data.orderType == 'retail')
+            && (!('businessName' in request.resource.data) || request.resource.data.businessName is string)
+          )
+          ||
+          (
+            request.resource.data.orderType == 'wholesale'
+            && isApprovedDealer()
+            && ('businessName' in request.resource.data)
+            && request.resource.data.businessName is string
+            && request.resource.data.businessName == get(/databases/$(database)/documents/dealers/$(request.auth.uid)).data.businessName
+          )
+        )
+        // Initial order lifecycle & payment validation: Cash on Delivery only
         && request.resource.data.orderStatus == 'placed'
         && request.resource.data.paymentMethod == 'cod'
         && request.resource.data.paymentStatus == 'pending'
@@ -134,7 +160,10 @@ service cloud.firestore {
         && request.resource.data.totalAmount == resource.data.totalAmount
         && request.resource.data.paymentMethod == resource.data.paymentMethod
         && request.resource.data.paymentStatus == resource.data.paymentStatus
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (!('customerName' in resource.data) || request.resource.data.customerName == resource.data.customerName)
+        && (!('orderType' in resource.data) || request.resource.data.orderType == resource.data.orderType)
+        && (!('businessName' in resource.data) || request.resource.data.businessName == resource.data.businessName);
 
       allow delete: if false;
     }

@@ -24,11 +24,18 @@ function formatINR(val) {
 export default function OrdersTable({ orders, onUpdateStatus, isUpdating }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All'); // 'All' | 'retail' | 'wholesale'
   const [expandedId, setExpandedId] = useState(null);
 
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
     return orders.filter((order) => {
+      const isWholesale = (order.orderType || '').toLowerCase() === 'wholesale';
+      const matchType =
+        typeFilter === 'All' ||
+        (typeFilter === 'wholesale' && isWholesale) ||
+        (typeFilter === 'retail' && !isWholesale);
+
       const matchStatus =
         statusFilter === 'All' ||
         (order.orderStatus || '').toLowerCase() === statusFilter.toLowerCase();
@@ -38,12 +45,13 @@ export default function OrdersTable({ orders, onUpdateStatus, isUpdating }) {
         order.id.toLowerCase().includes(q) ||
         (order.customerEmail || '').toLowerCase().includes(q) ||
         (order.customerName || '').toLowerCase().includes(q) ||
+        (order.businessName || '').toLowerCase().includes(q) ||
         (order.customerPhone || '').toLowerCase().includes(q) ||
         (order.deliveryAddress || '').toLowerCase().includes(q);
 
-      return matchStatus && matchSearch;
+      return matchType && matchStatus && matchSearch;
     });
-  }, [orders, search, statusFilter]);
+  }, [orders, search, statusFilter, typeFilter]);
 
   const toggleExpand = (id) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -53,7 +61,7 @@ export default function OrdersTable({ orders, onUpdateStatus, isUpdating }) {
     <div className="content-card">
       <div className="card-header-bar">
         <div className="card-title">
-          <span>📦 Customer Orders</span>
+          <span>📦 Customer & Wholesale Orders</span>
           <span className="brand-badge">{filteredOrders.length} of {orders.length}</span>
         </div>
 
@@ -61,10 +69,20 @@ export default function OrdersTable({ orders, onUpdateStatus, isUpdating }) {
           <input
             type="text"
             className="search-input"
-            placeholder="Search by ID, name, email, phone..."
+            placeholder="Search by ID, business, customer, phone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+
+          <select
+            className="filter-select"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+          >
+            <option value="All">All Types</option>
+            <option value="retail">🛒 Retail Orders</option>
+            <option value="wholesale">🏢 Wholesale (Dealers)</option>
+          </select>
 
           <select
             className="filter-select"
@@ -114,16 +132,44 @@ export default function OrdersTable({ orders, onUpdateStatus, isUpdating }) {
                   <React.Fragment key={order.id}>
                     <tr>
                       <td>
-                        <span className="id-badge" title={order.id}>
-                          #{order.id.slice(0, 8).toUpperCase()}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span className="id-badge" title={order.id}>
+                            #{order.id.slice(0, 8).toUpperCase()}
+                          </span>
+                          {order.orderType === 'wholesale' && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                color: '#0369a1',
+                                backgroundColor: '#e0f2fe',
+                                border: '1px solid #bae6fd',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                width: 'fit-content',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title="Authorized Dealer Wholesale Order"
+                            >
+                              🏢 WHOLESALE
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td style={{ whiteSpace: 'nowrap', color: '#475569' }}>
                         {formatTimestamp(order.createdAt)}
                       </td>
                       <td>
+                        {order.orderType === 'wholesale' && order.businessName ? (
+                          <div style={{ fontSize: '13px', fontWeight: 800, color: '#0369a1', marginBottom: '2px' }}>
+                            🏢 {order.businessName}
+                          </div>
+                        ) : null}
                         <div style={{ fontWeight: 700, color: '#0f172a' }}>
                           {order.customerName || order.customerEmail?.split('@')[0] || 'Customer'}
+                          {order.orderType === 'wholesale' && order.businessName ? (
+                            <span style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}> (Contact)</span>
+                          ) : null}
                         </div>
                         <div style={{ fontSize: '11px', color: '#64748b' }}>
                           📞 {order.customerPhone || 'N/A'}
@@ -215,8 +261,19 @@ export default function OrdersTable({ orders, onUpdateStatus, isUpdating }) {
                             {/* Delivery & Metadata */}
                             <div style={{ backgroundColor: '#ffffff', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                               <div style={{ fontSize: '11px', fontWeight: 800, color: '#475569', letterSpacing: '0.05em', marginBottom: '8px', textTransform: 'uppercase' }}>
-                                Shipping & Contact
+                                Shipping & Order Metadata
                               </div>
+                              <div style={{ fontSize: '12px', color: '#1e293b', marginBottom: '6px' }}>
+                                <strong>Order Category:</strong>{' '}
+                                <span style={{ fontWeight: 700, color: order.orderType === 'wholesale' ? '#0369a1' : '#475569' }}>
+                                  {order.orderType === 'wholesale' ? '🏢 Wholesale Dealer Order' : '🛒 Retail Customer Order'}
+                                </span>
+                              </div>
+                              {order.orderType === 'wholesale' && order.businessName ? (
+                                <div style={{ fontSize: '12px', color: '#1e293b', marginBottom: '6px' }}>
+                                  <strong>Registered Dealership:</strong> {order.businessName}
+                                </div>
+                              ) : null}
                               <div style={{ fontSize: '12px', color: '#1e293b', marginBottom: '6px', lineHeight: '1.4' }}>
                                 <strong>Delivery Address:</strong> {order.deliveryAddress || 'No address specified'}
                               </div>

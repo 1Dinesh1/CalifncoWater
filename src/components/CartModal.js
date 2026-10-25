@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { formatPrice } from '../data/products';
+import { formatPrice, getProductPrice } from '../data/products';
 
 export default function CartModal({
   visible,
@@ -26,6 +26,8 @@ export default function CartModal({
   onClearCart,
   currentUser = null,
   onOpenAuth,
+  isApprovedDealer = false,
+  dealerBusinessName = '',
 }) {
   const [isCheckout, setIsCheckout] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -34,21 +36,28 @@ export default function CartModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
 
-  // Derive cart items list
+  // Derive cart items list using the appropriate unit price (retail or wholesale)
   const cartEntries = Object.entries(cart)
     .filter(([_, qty]) => qty > 0)
     .map(([id, qty]) => {
       const product = products.find((p) => p.id === id);
+      const unitPrice = getProductPrice(product, isApprovedDealer);
       return {
         product,
+        unitPrice,
         quantity: qty,
-        subtotal: (product?.price || 0) * qty,
+        subtotal: unitPrice * qty,
       };
     })
     .filter((item) => item.product != null);
 
   const totalQuantity = cartEntries.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = cartEntries.reduce((sum, item) => sum + item.subtotal, 0);
+  const retailTotalAmount = cartEntries.reduce(
+    (sum, item) => sum + (item.product?.price || 0) * item.quantity,
+    0
+  );
+  const wholesaleSavings = isApprovedDealer ? Math.max(0, retailTotalAmount - totalAmount) : 0;
 
   const handleModalClose = () => {
     setIsCheckout(false);
@@ -149,7 +158,7 @@ export default function CartModal({
           productId: item.product.id,
           name: item.product.name,
           category: item.product.category,
-          unitPrice: item.product.price,
+          unitPrice: item.unitPrice,
           quantity: item.quantity,
           itemSubtotal: item.subtotal,
         })),
@@ -160,6 +169,13 @@ export default function CartModal({
         paymentStatus: 'pending',
         createdAt: serverTimestamp(),
       };
+
+      // For approved dealers, attach wholesale order metadata
+      if (isApprovedDealer) {
+        orderPayload.orderType = 'wholesale';
+        const resolvedBusinessName = (dealerBusinessName || '').trim() || trimmedName;
+        orderPayload.businessName = resolvedBusinessName;
+      }
 
       const docRef = await addDoc(collection(db, 'orders'), orderPayload);
 
@@ -173,8 +189,8 @@ export default function CartModal({
       onClose();
 
       Alert.alert(
-        'Order Placed Successfully! 🎉',
-        `Thank you for choosing Califnco Water!\n\nOrder ID: ${docRef.id}\nPayment: Cash on Delivery\nTotal Amount: ${formatPrice(totalAmount)}\n\nOur team will contact you at ${trimmedPhone} before dispatch.`,
+        isApprovedDealer ? 'Wholesale Order Placed! 🏢' : 'Order Placed Successfully! 🎉',
+        `Thank you for choosing Califnco Water!\n\nOrder ID: ${docRef.id}\nPayment: Cash on Delivery\nTotal Amount: ${formatPrice(totalAmount)}${isApprovedDealer && wholesaleSavings > 0 ? `\nWholesale Savings: ${formatPrice(wholesaleSavings)}` : ''}\n\nOur team will contact you at ${trimmedPhone} before dispatch.`,
         [{ text: 'OK' }]
       );
     } catch (err) {
@@ -279,6 +295,21 @@ export default function CartModal({
                 </View>
               </View>
             </View>
+
+            {/* Dealer Wholesale Context Banner */}
+            {isApprovedDealer && (
+              <View style={styles.dealerWholesaleCheckoutCard}>
+                <View style={styles.dealerWholesaleCheckoutRow}>
+                  <Text style={styles.dealerWholesaleIcon}>🏢</Text>
+                  <View style={styles.dealerWholesaleTextCol}>
+                    <Text style={styles.dealerWholesaleTitle}>Authorized Dealer Wholesale Order</Text>
+                    <Text style={styles.dealerWholesaleSubtitle}>
+                      {dealerBusinessName ? `${dealerBusinessName} • ` : ''}Trade Margins Applied
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
 
             {/* Payment Method Badge */}
             <View style={styles.paymentMethodCard}>
@@ -410,7 +441,7 @@ export default function CartModal({
           >
             {/* List of Cart Items */}
             <View style={styles.itemsList}>
-              {cartEntries.map(({ product, quantity, subtotal }) => (
+              {cartEntries.map(({ product, unitPrice, quantity, subtotal }) => (
                 <View key={product.id} style={styles.cartItemRow}>
                   <View style={styles.itemIconBox}>
                     <Text style={styles.itemIcon}>{product.placeholderIcon || '💧'}</Text>
@@ -420,9 +451,22 @@ export default function CartModal({
                     <Text style={styles.itemName} numberOfLines={2}>
                       {product.name}
                     </Text>
-                    <Text style={styles.itemCategory}>{product.category}</Text>
+                    <View style={styles.itemCategoryRow}>
+                      <Text style={styles.itemCategory}>{product.category}</Text>
+                      {isApprovedDealer && (
+                        <View style={styles.wholesaleTagBox}>
+                          <Text style={styles.wholesaleTagText}>WHOLESALE</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={styles.itemUnitPrice}>
-                      Unit: {formatPrice(product.price)}
+                      {isApprovedDealer ? 'Wholesale Unit: ' : 'Unit: '}
+                      {formatPrice(unitPrice)}
+                      {isApprovedDealer && product.price > unitPrice && (
+                        <Text style={styles.itemRetailStrikethrough}>
+                          {' '}(Retail: {formatPrice(product.price)})
+                        </Text>
+                      )}
                     </Text>
 
                     <View style={styles.itemSubtotalRow}>
@@ -469,6 +513,13 @@ export default function CartModal({
                 </Text>
                 <Text style={styles.summaryValue}>{formatPrice(totalAmount)}</Text>
               </View>
+
+              {isApprovedDealer && wholesaleSavings > 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.wholesaleSavingsLabel}>Wholesale Partner Savings</Text>
+                  <Text style={styles.wholesaleSavingsValue}>−{formatPrice(wholesaleSavings)}</Text>
+                </View>
+              )}
 
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Delivery Charges</Text>
@@ -1008,5 +1059,68 @@ const styles = StyleSheet.create({
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  dealerWholesaleCheckoutCard: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  dealerWholesaleCheckoutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dealerWholesaleIcon: {
+    fontSize: 20,
+  },
+  dealerWholesaleTextCol: {
+    flex: 1,
+  },
+  dealerWholesaleTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  dealerWholesaleSubtitle: {
+    fontSize: 11,
+    color: '#15803d',
+    marginTop: 2,
+  },
+  itemCategoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  wholesaleTagBox: {
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  wholesaleTagText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#0369a1',
+    letterSpacing: 0.4,
+  },
+  itemRetailStrikethrough: {
+    fontSize: 11,
+    color: '#94a3b8',
+    textDecorationLine: 'line-through',
+  },
+  wholesaleSavingsLabel: {
+    fontSize: 13,
+    color: '#16a34a',
+    fontWeight: '700',
+  },
+  wholesaleSavingsValue: {
+    fontSize: 14,
+    color: '#16a34a',
+    fontWeight: '800',
   },
 });

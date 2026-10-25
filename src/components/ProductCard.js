@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { CATEGORY_META, formatPrice } from '../data/products';
+import { CATEGORY_META, formatPrice, getProductPrice } from '../data/products';
 
 export default function ProductCard({
   product,
@@ -8,6 +8,7 @@ export default function ProductCard({
   onAddToCart,
   onIncrement,
   onDecrement,
+  isApprovedDealer = false,
 }) {
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -18,7 +19,8 @@ export default function ProductCard({
       ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
       : null;
 
-  const itemSubtotal = product.price * quantity;
+  const unitPrice = getProductPrice(product, isApprovedDealer);
+  const itemSubtotal = unitPrice * quantity;
 
   return (
     <View style={styles.card}>
@@ -106,12 +108,28 @@ export default function ProductCard({
         {/* Price & Action Footer */}
         <View style={styles.footer}>
           <View style={styles.priceContainer}>
-            <Text style={styles.price}>{formatPrice(product.price)}</Text>
-            {product.originalPrice ? (
-              <Text style={styles.originalPrice}>
-                {formatPrice(product.originalPrice)}
-              </Text>
-            ) : null}
+            {isApprovedDealer ? (
+              <>
+                <View style={styles.wholesalePillRow}>
+                  <Text style={styles.wholesalePillTag}>WHOLESALE</Text>
+                </View>
+                <Text style={styles.wholesalePriceText}>
+                  {formatPrice(unitPrice)}
+                </Text>
+                <Text style={styles.originalPrice}>
+                  Retail: {formatPrice(product.price)}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.price}>{formatPrice(product.price)}</Text>
+                {product.originalPrice ? (
+                  <Text style={styles.originalPrice}>
+                    {formatPrice(product.originalPrice)}
+                  </Text>
+                ) : null}
+              </>
+            )}
           </View>
 
           {/* Cart Quantity Controls */}
@@ -151,12 +169,13 @@ export default function ProductCard({
 
         {/* Item Subtotal Banner when quantity > 0 */}
         {quantity > 0 && (
-          <View style={styles.subtotalBanner}>
-            <Text style={styles.subtotalLabel}>
+          <View style={[styles.subtotalBanner, isApprovedDealer && styles.subtotalBannerDealer]}>
+            <Text style={[styles.subtotalLabel, isApprovedDealer && styles.subtotalLabelDealer]}>
               In Cart: {quantity} {quantity === 1 ? 'unit' : 'units'}
             </Text>
-            <Text style={styles.subtotalValue}>
-              Item Subtotal: {formatPrice(itemSubtotal)}
+            <Text style={[styles.subtotalValue, isApprovedDealer && styles.subtotalValueDealer]}>
+              {isApprovedDealer ? 'Wholesale Subtotal: ' : 'Item Subtotal: '}
+              {formatPrice(itemSubtotal)}
             </Text>
           </View>
         )}
@@ -400,5 +419,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0f172a',
     fontWeight: '700',
+  },
+  wholesalePillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  wholesalePillTag: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#0369a1',
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    letterSpacing: 0.5,
+  },
+  wholesalePriceText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0284c7',
+  },
+  subtotalBannerDealer: {
+    borderTopColor: '#e0f2fe',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  subtotalLabelDealer: {
+    color: '#0369a1',
+  },
+  subtotalValueDealer: {
+    color: '#0284c7',
   },
 });

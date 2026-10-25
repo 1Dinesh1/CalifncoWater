@@ -105,6 +105,15 @@ D:\CalifncoProject\CalifncoWater
       - Floating Bottom Cart Bar:
         - Positioned cleanly above the bottom navigation bar (`bottom: 58px`).
         - Product list content padding adjusts dynamically so products and controls are never obscured.
+      - Dealer Wholesale Pricing & Bulk Ordering (Stage 1 & 2):
+        - Added `wholesalePrice` to all 16 items in `src/data/products.js` (25% equipment margin, 30% consumable margin).
+        - Added reusable `getProductPrice(product, isApprovedDealer)` helper ensuring strict fallback to retail for unapproved accounts.
+        - `ProductCard.js` renders a `WHOLESALE` pill and trade unit prices for verified dealers, with standard retail UI for non-dealers.
+        - `CatalogueScreen.js` verifies dealer status (`status === 'approved'`), renders top `🏢 Wholesale Pricing Active` indicator, and passes permissions.
+        - `CartModal.js` recalculates subtotals/totals at wholesale rates, shows partner savings, and attaches `orderType: 'wholesale'` and `businessName`.
+        - `OrdersModal.js` displays a `🏢 WHOLESALE` badge and dealership business name on wholesale order cards in order history.
+        - `admin-web/src/components/OrdersTable.jsx` identifies wholesale orders with `🏢 WHOLESALE` tags, displays dealership business names, and adds an Order Type filter (`All Types` / `Retail Orders` / `Wholesale`).
+        - `firestore.rules` updated with `isApprovedDealer()` helper, keys whitelist expansion, order type validation requiring approved dealer for wholesale orders, and single-item subtotal consistency checks.
     - Security Rules in `firestore.rules` and `firestore.rules.proposed`:
       - Authenticated users can read only their own `/dealers/{uid}` document (`request.auth.uid == dealerId`).
       - Authenticated users can create only their own document (`request.auth.uid == dealerId`), strictly enforcing initial status `'pending'`, server timestamp, required fields, and field allowlist.

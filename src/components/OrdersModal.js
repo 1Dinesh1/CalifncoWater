@@ -111,6 +111,7 @@ function OrderCard({ order }) {
   const shortenedId = order.id ? `#${order.id.slice(0, 8).toUpperCase()}` : '#ORDER';
   const paymentMethodLabel = order.paymentMethod === 'cod' ? 'Cash on Delivery' : (order.paymentMethod || 'COD');
   const isPaymentPending = (order.paymentStatus || 'pending').toLowerCase() === 'pending';
+  const isWholesale = order.orderType === 'wholesale';
 
   return (
     <View style={styles.orderCard}>
@@ -121,9 +122,24 @@ function OrderCard({ order }) {
           <View style={styles.orderIdBadge}>
             <Text style={styles.orderIdText}>{shortenedId}</Text>
           </View>
+          {isWholesale && (
+            <View style={styles.wholesaleBadge}>
+              <Text style={styles.wholesaleBadgeText}>🏢 WHOLESALE</Text>
+            </View>
+          )}
         </View>
         <Text style={styles.orderDateText}>{formattedDate}</Text>
       </View>
+
+      {/* Wholesale Business Name Banner */}
+      {isWholesale && order.businessName ? (
+        <View style={styles.businessNameBanner}>
+          <Text style={styles.businessNameIcon}>🏢</Text>
+          <Text style={styles.businessNameText} numberOfLines={1}>
+            Dealership: {order.businessName}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Badges Row: Order Status & Payment Status */}
       <View style={styles.badgesRow}>
@@ -167,7 +183,7 @@ function OrderCard({ order }) {
                   {item.name || 'Product'}
                 </Text>
                 <Text style={styles.itemQuantityPrice}>
-                  Qty: {item.quantity} × {formatPrice(item.unitPrice || 0)}
+                  Qty: {item.quantity} × {formatPrice(item.unitPrice || 0)}{isWholesale ? ' (Wholesale)' : ''}
                 </Text>
               </View>
               <Text style={styles.itemSubtotal}>
@@ -193,9 +209,14 @@ function OrderCard({ order }) {
       {(order.deliveryAddress || order.customerPhone) && (
         <View style={styles.deliveryBox}>
           <Text style={styles.deliveryBoxTitle}>DELIVERY ADDRESS</Text>
+          {isWholesale && order.businessName ? (
+            <Text style={styles.deliveryRecipient} numberOfLines={1}>
+              🏢 {order.businessName}
+            </Text>
+          ) : null}
           {order.customerName ? (
             <Text style={styles.deliveryRecipient} numberOfLines={1}>
-              {order.customerName}
+              {isWholesale ? 'Contact Person: ' : ''}{order.customerName}
             </Text>
           ) : null}
           {order.deliveryAddress ? (
@@ -532,6 +553,40 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0f172a',
     letterSpacing: 0.5,
+  },
+  wholesaleBadge: {
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  wholesaleBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0284c7',
+  },
+  businessNameBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 6,
+  },
+  businessNameIcon: {
+    fontSize: 13,
+  },
+  businessNameText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0f172a',
   },
   orderDateText: {
     fontSize: 11,

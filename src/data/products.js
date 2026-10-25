@@ -1,6 +1,10 @@
 /**
- * Califnco Water - Mock Product Catalogue Data
- * Milestone M1: Local mock catalogue with 16 distinct products across 4 categories.
+ * Califnco Water - Product Catalogue & Pricing Data
+ *
+ * Provisional Wholesale Pricing Policy:
+ * - Equipment (Purifiers & Dispensers): 25% wholesale trade margin (Math.round(price * 0.75)).
+ * - Consumables & Spares (Filters & Accessories): 30% wholesale trade margin (Math.round(price * 0.70)).
+ * - Retail prices (price) and MRP (originalPrice) remain strictly unchanged.
  */
 
 export const CATEGORIES = ['All', 'Purifiers', 'Dispensers', 'Filters', 'Accessories'];
@@ -20,6 +24,7 @@ export const PRODUCTS = [
     name: 'Califnco RO+UV Alkaline 10L Purifier',
     category: 'Purifiers',
     price: 14999,
+    wholesalePrice: 11249,
     originalPrice: 18999,
     rating: 4.8,
     reviewsCount: 142,
@@ -34,6 +39,7 @@ export const PRODUCTS = [
     name: 'Califnco Smart Under-Sink RO System',
     category: 'Purifiers',
     price: 18499,
+    wholesalePrice: 13874,
     originalPrice: 22999,
     rating: 4.9,
     reviewsCount: 88,
@@ -48,6 +54,7 @@ export const PRODUCTS = [
     name: 'Califnco Gravity Non-Electric 15L Purifier',
     category: 'Purifiers',
     price: 3299,
+    wholesalePrice: 2474,
     originalPrice: 3999,
     rating: 4.5,
     reviewsCount: 95,
@@ -62,6 +69,7 @@ export const PRODUCTS = [
     name: 'Califnco Commercial 50 LPH RO Plant',
     category: 'Purifiers',
     price: 28500,
+    wholesalePrice: 21375,
     originalPrice: 33900,
     rating: 4.7,
     reviewsCount: 34,
@@ -78,6 +86,7 @@ export const PRODUCTS = [
     name: 'Califnco Hot & Cold Tabletop Dispenser',
     category: 'Dispensers',
     price: 7499,
+    wholesalePrice: 5624,
     originalPrice: 8999,
     rating: 4.6,
     reviewsCount: 110,
@@ -92,6 +101,7 @@ export const PRODUCTS = [
     name: 'Califnco Floor Standing Bottom-Load Dispenser',
     category: 'Dispensers',
     price: 12999,
+    wholesalePrice: 9749,
     originalPrice: 15499,
     rating: 4.8,
     reviewsCount: 67,
@@ -106,6 +116,7 @@ export const PRODUCTS = [
     name: 'Califnco Rechargeable Automatic Can Pump',
     category: 'Dispensers',
     price: 699,
+    wholesalePrice: 524,
     originalPrice: 1199,
     rating: 4.4,
     reviewsCount: 320,
@@ -120,6 +131,7 @@ export const PRODUCTS = [
     name: 'Califnco Heavy-Duty Manual Dispenser Stand',
     category: 'Dispensers',
     price: 1199,
+    wholesalePrice: 899,
     originalPrice: 1499,
     rating: 4.6,
     reviewsCount: 78,
@@ -136,6 +148,7 @@ export const PRODUCTS = [
     name: 'Califnco Multi-Stage Filter Cartridge Set',
     category: 'Filters',
     price: 1250,
+    wholesalePrice: 875,
     originalPrice: 1699,
     rating: 4.7,
     reviewsCount: 204,
@@ -150,6 +163,7 @@ export const PRODUCTS = [
     name: 'Califnco Post-Carbon & Mineral Booster',
     category: 'Filters',
     price: 899,
+    wholesalePrice: 629,
     originalPrice: 1199,
     rating: 4.6,
     reviewsCount: 153,
@@ -164,6 +178,7 @@ export const PRODUCTS = [
     name: 'Califnco 80 GPD High-Rejection RO Membrane',
     category: 'Filters',
     price: 1650,
+    wholesalePrice: 1155,
     originalPrice: 2100,
     rating: 4.9,
     reviewsCount: 189,
@@ -178,6 +193,7 @@ export const PRODUCTS = [
     name: 'Califnco Alkaline pH Remineralizer Filter',
     category: 'Filters',
     price: 1100,
+    wholesalePrice: 770,
     originalPrice: 1450,
     rating: 4.5,
     reviewsCount: 92,
@@ -194,6 +210,7 @@ export const PRODUCTS = [
     name: 'Califnco Food-Grade 20L Water Jar (BPA Free)',
     category: 'Accessories',
     price: 450,
+    wholesalePrice: 315,
     originalPrice: 600,
     rating: 4.5,
     reviewsCount: 410,
@@ -208,6 +225,7 @@ export const PRODUCTS = [
     name: 'Califnco Digital TDS Water Quality Tester Pen',
     category: 'Accessories',
     price: 499,
+    wholesalePrice: 349,
     originalPrice: 799,
     rating: 4.7,
     reviewsCount: 280,
@@ -222,6 +240,7 @@ export const PRODUCTS = [
     name: 'Califnco Quick-Connect RO Tubing & Fitting Kit',
     category: 'Accessories',
     price: 349,
+    wholesalePrice: 244,
     originalPrice: 499,
     rating: 4.6,
     reviewsCount: 165,
@@ -236,6 +255,7 @@ export const PRODUCTS = [
     name: 'Califnco 10" Pre-Filter Housing with Spanner',
     category: 'Accessories',
     price: 850,
+    wholesalePrice: 595,
     originalPrice: 1100,
     rating: 4.7,
     reviewsCount: 118,
@@ -246,6 +266,23 @@ export const PRODUCTS = [
     placeholderIcon: '🛡️',
   },
 ];
+
+/**
+ * Reusable helper to safely resolve the applicable unit price.
+ * Returns wholesalePrice ONLY when isApprovedDealer is explicitly boolean true.
+ * Defaults safely to the standard customer retail price.
+ */
+export function getProductPrice(product, isApprovedDealer = false) {
+  if (!product) return 0;
+  if (
+    isApprovedDealer === true &&
+    typeof product.wholesalePrice === 'number' &&
+    product.wholesalePrice > 0
+  ) {
+    return product.wholesalePrice;
+  }
+  return product.price || 0;
+}
 
 export function formatPrice(amount) {
   if (typeof amount !== 'number') return '₹0';
