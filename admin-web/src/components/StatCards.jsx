@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function StatCards({ orders, bookings }) {
+export default function StatCards({ orders, bookings, dealers = [] }) {
   const totalOrders = orders.length;
 
   const totalRevenue = orders.reduce((sum, order) => {
@@ -15,6 +15,14 @@ export default function StatCards({ orders, bookings }) {
 
   const requestedBookings = bookings.filter(
     (b) => (b.bookingStatus || '').toLowerCase() === 'requested'
+  ).length;
+
+  const activeDealers = dealers.filter(
+    (d) => (d.status || '').toLowerCase() === 'approved'
+  ).length;
+
+  const pendingDealers = dealers.filter(
+    (d) => (d.status || '').toLowerCase() === 'pending'
   ).length;
 
   const formatINR = (val) => {
@@ -70,6 +78,23 @@ export default function StatCards({ orders, bookings }) {
         </div>
         <div className="stat-icon-circle" style={{ backgroundColor: '#fee2e2', color: '#dc2626' }}>
           🔔
+        </div>
+      </div>
+
+      <div className="stat-card">
+        <div className="stat-info">
+          <span className="stat-label">Authorized Dealers</span>
+          <span className="stat-value">
+            {activeDealers}
+            {pendingDealers > 0 && (
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#b45309', marginLeft: '6px' }}>
+                ({pendingDealers} req)
+              </span>
+            )}
+          </span>
+        </div>
+        <div className="stat-icon-circle" style={{ backgroundColor: '#fef3c7', color: '#d97706' }}>
+          🏢
         </div>
       </div>
     </div>

@@ -22,7 +22,7 @@ export default function Navbar({ currentUser, onSignOut, onRefresh, isRefreshing
             className="btn-secondary"
             onClick={onRefresh}
             disabled={isRefreshing}
-            title="Refresh Orders & Service Requests"
+            title="Refresh Orders, Service Requests & Dealers"
           >
             <span style={{ display: 'inline-block', transform: isRefreshing ? 'rotate(180deg)' : 'none', transition: 'transform 0.5s ease' }}>
               🔄

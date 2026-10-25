@@ -12,6 +12,7 @@ import Navbar from './components/Navbar';
 import StatCards from './components/StatCards';
 import OrdersTable from './components/OrdersTable';
 import BookingsTable from './components/BookingsTable';
+import DealersTable from './components/DealersTable';
 import AdminSetupNotice from './components/AdminSetupNotice';
 import LoginView from './components/LoginView';
 
@@ -20,9 +21,10 @@ export default function App() {
   const [isAdminVerified, setIsAdminVerified] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [accessDeniedMessage, setAccessDeniedMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'bookings' | 'security'
+  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'bookings' | 'dealers' | 'security'
   const [orders, setOrders] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [dealers, setDealers] = useState([]);
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [permissionError, setPermissionError] = useState(null);
@@ -154,6 +156,35 @@ export default function App() {
       setPermissionError((prev) => prev || err.message || 'Permission denied when reading service bookings.');
     }
 
+    // 3. Fetch Dealers collection
+    try {
+      const dealersRef = collection(db, 'dealers');
+      const dealersSnap = await getDocs(dealersRef);
+      const dealersList = [];
+      dealersSnap.forEach((d) => {
+        dealersList.push({ id: d.id, ...d.data() });
+      });
+
+      // Sort client-side descending by createdAt
+      dealersList.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis
+          ? a.createdAt.toMillis()
+          : a.createdAt?.seconds
+          ? a.createdAt.seconds * 1000
+          : 0;
+        const timeB = b.createdAt?.toMillis
+          ? b.createdAt.toMillis()
+          : b.createdAt?.seconds
+          ? b.createdAt.seconds * 1000
+          : 0;
+        return timeB - timeA;
+      });
+
+      setDealers(dealersList);
+    } catch (err) {
+      console.warn('Dealers collection read note:', err.message);
+    }
+
     setIsDataLoading(false);
     setIsRefreshing(false);
   }, []);
@@ -165,6 +196,7 @@ export default function App() {
     } else {
       setOrders([]);
       setBookings([]);
+      setDealers([]);
       setPermissionError(null);
     }
   }, [currentUser, isAdminVerified, fetchData]);
@@ -173,7 +205,7 @@ export default function App() {
     if (currentUser) {
       setIsRefreshing(true);
       fetchData(currentUser);
-      showToast('Refreshing orders and bookings...');
+      showToast('Refreshing orders, bookings & dealers...');
     }
   };
 
@@ -220,6 +252,28 @@ export default function App() {
       setIsUpdating(false);
     }
   };
+
+  const handleUpdateDealerStatus = async (dealerId, newStatus) => {
+    setIsUpdating(true);
+    try {
+      const dealerRef = doc(db, 'dealers', dealerId);
+      await updateDoc(dealerRef, { status: newStatus });
+      setDealers((prev) =>
+        prev.map((d) => (d.id === dealerId ? { ...d, status: newStatus } : d))
+      );
+      showToast(`Dealer #${dealerId.slice(0, 8)} status set to "${newStatus}"!`);
+    } catch (err) {
+      alert(
+        `Dealer status update rejected by Firestore: ${err.message}\n\nPlease verify that the updated firestore.rules for /dealers have been published in Firebase Console.`
+      );
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const pendingDealersCount = dealers.filter(
+    (d) => (d.status || '').toLowerCase() === 'pending'
+  ).length;
 
   if (authLoading) {
     return (
@@ -285,7 +339,7 @@ export default function App() {
 
       <main className="main-content">
         {/* KPI Overview Cards */}
-        <StatCards orders={orders} bookings={bookings} />
+        <StatCards orders={orders} bookings={bookings} dealers={dealers} />
 
         {/* View Tabs */}
         <div className="view-tabs">
@@ -303,6 +357,22 @@ export default function App() {
           >
             <span>🛠️ Service Desk</span>
             <span className="tab-count">{bookings.length}</span>
+          </button>
+
+          <button
+            className={`tab-btn ${activeTab === 'dealers' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dealers')}
+          >
+            <span>🏢 Dealers Desk</span>
+            <span className="tab-count">{dealers.length}</span>
+            {pendingDealersCount > 0 && (
+              <span
+                className="tab-count"
+                style={{ backgroundColor: '#fef3c7', color: '#b45309', marginLeft: '2px' }}
+              >
+                {pendingDealersCount} pending
+              </span>
+            )}
           </button>
 
           <button
@@ -366,6 +436,27 @@ export default function App() {
                 <BookingsTable
                   bookings={bookings}
                   onUpdateStatus={handleUpdateBookingStatus}
+                  isUpdating={isUpdating}
+                />
+              </>
+            )}
+
+            {activeTab === 'dealers' && (
+              <>
+                {permissionError && (
+                  <div className="notice-banner danger">
+                    <div className="notice-icon">⚠️</div>
+                    <div>
+                      <div className="notice-title">Firestore Access Notice</div>
+                      <div className="notice-text">
+                        {permissionError}. If dealer applications cannot be retrieved, verify that the <code>/dealers</code> security rules are published in Firebase Console.
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <DealersTable
+                  dealers={dealers}
+                  onUpdateStatus={handleUpdateDealerStatus}
                   isUpdating={isUpdating}
                 />
               </>
